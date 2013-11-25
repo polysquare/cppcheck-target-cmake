@@ -184,7 +184,6 @@ function (cppcheck_sources SOURCES_VAR TARGET)
 
     set (CPPCHECK_OPTIONS
          ${CPPCHECK_COMMON_OPTIONS}
-         --enable=warning
          --enable=performance
          --enable=portability)
 
