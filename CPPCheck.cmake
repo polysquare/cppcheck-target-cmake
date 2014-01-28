@@ -44,7 +44,7 @@ function (_cppcheck_add_checks_to_target SOURCES_VAR TARGET OPTIONS_VAR)
     endif (ADD_CHECKS_OPTIONS_COMMENT)
 
     add_custom_command (TARGET ${TARGET}
-                        POST_BUILD
+                        PRE_LINK
                         COMMAND
                         ${CPPCHECK_EXECUTABLE}
                         ARGS
