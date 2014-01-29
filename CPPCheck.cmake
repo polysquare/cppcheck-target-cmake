@@ -30,7 +30,10 @@ function (_validate_cppcheck CONTINUE)
 
 endfunction (_validate_cppcheck)
 
-function (_cppcheck_add_checks_to_target SOURCES_VAR TARGET OPTIONS_VAR)
+function (_cppcheck_add_checks_to_target SOURCES_VAR
+                                         TARGET
+                                         WHEN
+                                         OPTIONS_VAR)
 
     set (ADD_CHECKS_OPTIONS COMMENT)
     cmake_parse_arguments (ADD_CHECKS_TO_TARGET "${COMMENT}" "" "")
@@ -44,7 +47,7 @@ function (_cppcheck_add_checks_to_target SOURCES_VAR TARGET OPTIONS_VAR)
     endif (ADD_CHECKS_OPTIONS_COMMENT)
 
     add_custom_command (TARGET ${TARGET}
-                        PRE_LINK
+                        ${WHEN}
                         COMMAND
                         ${CPPCHECK_EXECUTABLE}
                         ARGS
@@ -148,6 +151,7 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     _cppcheck_add_checks_to_target (_cppcheck_unused_function_sources
                                     ${TARGET}
+                                    PRE_BUILD
                                     OPTIONS
                                     COMMENT "Checking for unused functions")
 
@@ -225,6 +229,7 @@ function (cppcheck_sources SOURCES_VAR TARGET)
 
     _cppcheck_add_checks_to_target (${SOURCES_VAR}
                                     ${TARGET}
+                                    PRE_LINK
                                     CPPCHECK_OPTIONS
                                     ${EXTRA_ARGS})
 
