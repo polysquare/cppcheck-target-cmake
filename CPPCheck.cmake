@@ -61,16 +61,33 @@ endfunction (_cppcheck_add_checks_to_target)
 # target
 #
 # SOURCES_VAR : A variable containing a list of sources
-function (cppcheck_add_to_global_unused_function_check SOURCES_VAR)
+function (cppcheck_add_to_global_unused_function_check)
 
-    set (_sources ${${SOURCES_VAR}})
+    set (GLOBAL_CHECK_MULTIVAR_ARGS
+         SOURCES
+         INCLUDES)
 
-    foreach (_source ${_sources})
+    cmake_parse_arguments (GLOBAL_CHECK
+                           ""
+                           ""
+                           "${GLOBAL_CHECK_MULTIVAR_ARGS}"
+                           ${ARGN})
+
+    foreach (SOURCE ${GLOBAL_CHECK_SOURCES})
 
         set_property (GLOBAL
                       APPEND
                       PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES
-                      ${_source})
+                      ${SOURCE})
+
+    endforeach ()
+
+    foreach (INCLUDE ${GLOBAL_CHECK_INCLUDES})
+
+        set_property (GLOBAL
+                      APPEND
+                      PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES
+                      ${INCLUDE})
 
     endforeach ()
 
@@ -95,21 +112,21 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     endif ()
 
-	get_property (_cppcheck_unused_function_sources_set
-		          GLOBAL
-	              PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES
-	              SET)
+    get_property (_cppcheck_unused_function_sources_set
+                  GLOBAL
+                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES
+                  SET)
 
     if (NOT _cppcheck_unused_function_sources_set)
 
-    	message (SEND_ERROR "No unused function sources registered, "
-    	                    "they should be registered using "
-    	                    "cppcheck_add_to_global_unused_function_check "
-    	                    "before calling "
-    	                    "cppcheck_add_global_unused_function_check_to_"
-    	                    "target")
+        message (SEND_ERROR "No unused function sources registered, "
+                            "they should be registered using "
+                            "cppcheck_add_to_global_unused_function_check "
+                            "before calling "
+                            "cppcheck_add_global_unused_function_check_to_"
+                            "target")
 
-    	return ()
+        return ()
 
     endif (NOT _cppcheck_unused_function_sources_set)
 
@@ -123,18 +140,25 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
                            ${ARGN})
 
     get_property (_cppcheck_unused_function_sources
-		          GLOBAL
-	              PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES)
+                  GLOBAL
+                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES)
+
+    get_property (_cppcheck_unused_function_includes
+                  GLOBAL
+                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
 
     set (OPTIONS
-    	 ${CPPCHECK_COMMON_OPTIONS}
-    	 --enable=unusedFunction)
+         ${CPPCHECK_COMMON_OPTIONS}
+         --enable=unusedFunction)
 
     if (NOT ADD_GLOBAL_UNUSED_FUNCTION_CHECK_WARN_ONLY)
 
         list (APPEND OPTIONS --error-exitcode=1)
 
     endif (NOT ADD_GLOBAL_UNUSED_FUNCTION_CHECK_WARN_ONLY)
+
+    list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES
+          ${_cppcheck_unused_function_includes})
 
     if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
 
@@ -228,7 +252,10 @@ function (cppcheck_sources SOURCES_VAR TARGET)
                                     CPPCHECK_OPTIONS
                                     ${EXTRA_ARGS})
 
-    cppcheck_add_to_global_unused_function_check (${SOURCES_VAR})
+    cppcheck_add_to_global_unused_function_check (SOURCES
+                                                  ${${SOURCES_VAR}}
+                                                  INCLUDES
+                                                  ${CPPCHECK_INCLUDES})
 
 endfunction (cppcheck_sources)
 
@@ -246,38 +273,33 @@ endfunction (cppcheck_sources)
 # [Optional] INCLUDES : Check header files in specified include directories.
 function (cppcheck_target_sources TARGET)
 
-	get_target_property (_sources ${TARGET} SOURCES)
-	set (_files_to_check)
-	foreach (_file ${_sources})
+    get_target_property (_sources ${TARGET} SOURCES)
+    set (_files_to_check)
+    foreach (_file ${_sources})
 
-		get_source_file_property (_lang ${_file} LANGUAGE)
-		get_source_file_property (_location ${_file} LOCATION)
+        get_source_file_property (_lang ${_file} LANGUAGE)
+        get_source_file_property (_location ${_file} LOCATION)
 
-		if ("${_lang}" MATCHES "CXX")
+        if ("${_lang}" MATCHES "CXX")
 
-			list (APPEND _files_to_check ${_location})
+            list (APPEND _files_to_check ${_location})
 
-		endif ("${_lang}" MATCHES "CXX")
+        endif ("${_lang}" MATCHES "CXX")
 
     endforeach ()
 
     set (EXTRA_OPTIONS)
-    set (OPTIONAL_OPTIONS CHECK_TARGET_HEADERS)
-    cmake_parse_arguments (CPPCHECK "${OPTIONAL_OPTIONS}" "" "" ${ARGN})
-
-    if (CPPCHECK_CHECK_TARGET_HEADERS)
-
-        get_target_property (_include_directories
-                             ${TARGET}
-                             INCLUDE_DIRECTORIES)
-
-        set (EXTRA_OPTIONS INCLUDES ${_include_directories} ${EXTRA_OPTIONS})
-
-    endif (CPPCHECK_CHECK_TARGET_HEADERS)
+    set (MULTIVALUE_OPTIONS INCLUDES)
+    cmake_parse_arguments (CPPCHECK
+                           ""
+                           ""
+                           "${MULTIVALUE_OPTIONS}"
+                           ${ARGN})
 
     cppcheck_sources (_files_to_check
                       ${TARGET}
-                      INCLUDES ${_include_directories}
+                      INCLUDES
+                      ${CPPCHECK_INCLUDES}
                       ${ARGN})
 
 endfunction (cppcheck_target_sources)
