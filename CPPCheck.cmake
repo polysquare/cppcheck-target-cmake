@@ -19,7 +19,7 @@ function (_validate_cppcheck CONTINUE)
     if (NOT CPPCHECK_EXECUTABLE)
 
         message (SEND_ERROR "cppcheck binary was not found, make sure "
-                            "to call find_package (cppcheck) before "
+                            "to call find_program (cppcheck) before "
                             "using this module")
 
     else (NOT CPPCHECK_EXECUTABLE)
@@ -59,11 +59,13 @@ endfunction (_cppcheck_add_checks_to_target)
 
 # cppcheck_add_to_global_unused_function_check
 #
-# Adds the source files as specified in SOURCES_VAR to the global
+# Adds the source files as specified in SOURCES to the global
 # list of source files to check during the global unused function
 # target
 #
-# SOURCES_VAR : A variable containing a list of sources
+# [Optional] SOURCES : A variable containing a list of sources
+# [Optional] INCLUDES : A list of include directories used to
+#                       build these sources.
 function (cppcheck_add_to_global_unused_function_check)
 
     set (GLOBAL_CHECK_MULTIVAR_ARGS
@@ -274,7 +276,6 @@ endfunction (cppcheck_sources)
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
 # [Optional] CHECK_UNUSED : Check for unused functions
-# [Optional] CHECK_TARGET_HEADERS : Also check header files on TARGET
 # [Optional] INCLUDES : Check header files in specified include directories.
 function (cppcheck_target_sources TARGET)
 
