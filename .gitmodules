@@ -1,0 +1,3 @@
+[submodule "cmake-unit"]
+	path = cmake-unit
+	url = git://github.com/polysquare/cmake-unit
