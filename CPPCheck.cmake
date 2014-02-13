@@ -19,7 +19,7 @@ function (_validate_cppcheck CONTINUE)
     if (NOT CPPCHECK_EXECUTABLE)
 
         message (SEND_ERROR "cppcheck binary was not found, make sure "
-                            "to call find_package (cppcheck) before "
+                            "to call find_program (cppcheck) before "
                             "using this module")
 
     else (NOT CPPCHECK_EXECUTABLE)
@@ -30,40 +30,46 @@ function (_validate_cppcheck CONTINUE)
 
 endfunction (_validate_cppcheck)
 
-function (_cppcheck_add_checks_to_target SOURCES_VAR
-                                         TARGET
-                                         WHEN
-                                         OPTIONS_VAR)
+function (_cppcheck_add_checks_to_target TARGET
+                                         WHEN)
 
-    set (ADD_CHECKS_OPTIONS COMMENT)
-    cmake_parse_arguments (ADD_CHECKS_TO_TARGET "${COMMENT}" "" "")
+    set (ADD_CHECKS_SINGLEVAR_OPTIONS COMMENT)
+    set (ADD_CHECKS_MULTIVAR_OPTIONS SOURCES OPTIONS)
+
+    cmake_parse_arguments (ADD_CHECKS_TO_TARGET
+                           ""
+                           "${ADD_CHECKS_SINGLEVAR_OPTIONS}"
+                           "${ADD_CHECKS_MULTIVAR_OPTIONS}"
+                           ${ARGN})
 
     set (EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND)
-    if (ADD_CHECKS_OPTIONS_COMMENT)
+    if (ADD_CHECKS_TO_TARGET_COMMENT)
 
         set (EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND
-             COMMENT ${ADD_CHECKS_OPTIONS})
+             COMMENT ${ADD_CHECKS_TO_TARGET_COMMENT})
 
-    endif (ADD_CHECKS_OPTIONS_COMMENT)
+    endif (ADD_CHECKS_TO_TARGET_COMMENT)
 
     add_custom_command (TARGET ${TARGET}
                         ${WHEN}
                         COMMAND
                         ${CPPCHECK_EXECUTABLE}
                         ARGS
-                        ${${OPTIONS_VAR}}
-                        ${${SOURCES_VAR}}
+                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
+                        ${ADD_CHECKS_TO_TARGET_SOURCES}
                         ${EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND})
 
 endfunction (_cppcheck_add_checks_to_target)
 
 # cppcheck_add_to_global_unused_function_check
 #
-# Adds the source files as specified in SOURCES_VAR to the global
+# Adds the source files as specified in SOURCES to the global
 # list of source files to check during the global unused function
 # target
 #
-# SOURCES_VAR : A variable containing a list of sources
+# [Optional] SOURCES : A variable containing a list of sources
+# [Optional] INCLUDES : A list of include directories used to
+#                       build these sources.
 function (cppcheck_add_to_global_unused_function_check)
 
     set (GLOBAL_CHECK_MULTIVAR_ARGS
@@ -173,10 +179,10 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
 
-    _cppcheck_add_checks_to_target (_cppcheck_unused_function_sources
-                                    ${TARGET}
+    _cppcheck_add_checks_to_target (${TARGET}
                                     PRE_BUILD
-                                    OPTIONS
+                                    SOURCES ${_cppcheck_unused_function_sources}
+                                    OPTIONS ${OPTIONS}
                                     COMMENT "Checking for unused functions")
 
 endfunction (cppcheck_add_global_unused_function_check_to_target)
@@ -186,14 +192,14 @@ endfunction (cppcheck_add_global_unused_function_check_to_target)
 # Run CPPCheck on the sources as specified in SOURCES, reporting any
 # warnings or errors on stderr.
 #
-# SOURCES_VAR : A variable containing a list of sources
 # TARGET : Target to attach checks to
+# [Mandatory] SOURCES : A list of sources to scan.
 # [Optional] COMMENT : Text to print when checking sources
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
 # [Optional] CHECK_UNUSED : Check for unused functions
 # [Optional] INCLUDES : Include directories to search.
-function (cppcheck_sources SOURCES_VAR TARGET)
+function (cppcheck_sources TARGET)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
 
@@ -203,12 +209,20 @@ function (cppcheck_sources SOURCES_VAR TARGET)
 
     endif (NOT CPPCHECK_AVAILABLE)
 
-    set (OPTIONAL_OPTIONS WARN_ONLY NO_CHECK_STYLE NO_CHECK_UNUSED COMMENT)
-    set (MULTIVALUE_OPTIONS INCLUDES)
+    set (OPTIONAL_OPTIONS WARN_ONLY NO_CHECK_STYLE NO_CHECK_UNUSED)
+    set (SINGLEVALUE_OPTIONS COMMENT)
+    set (MULTIVALUE_OPTIONS INCLUDES SOURCES)
     cmake_parse_arguments (CPPCHECK
                            "${OPTIONAL_OPTIONS}"
-                           ""
-                           "${MULTIVALUE_OPTIONS}" ${ARGN})
+                           "${SINGLEVALUE_OPTIONS}"
+                           "${MULTIVALUE_OPTIONS}"
+                           ${ARGN})
+
+    if (NOT CPPCHECK_SOURCES)
+
+        message (FATAL_ERROR "SOURCES must be set when using cppcheck_sources")
+
+    endif (NOT CPPCHECK_SOURCES)
 
     set (CPPCHECK_OPTIONS
          ${CPPCHECK_COMMON_OPTIONS}
@@ -251,16 +265,14 @@ function (cppcheck_sources SOURCES_VAR TARGET)
 
     endif (CPPCHECK_COMMENT)
 
-    _cppcheck_add_checks_to_target (${SOURCES_VAR}
-                                    ${TARGET}
+    _cppcheck_add_checks_to_target (${TARGET}
                                     PRE_LINK
-                                    CPPCHECK_OPTIONS
+                                    SOURCES ${CPPCHECK_SOURCES}
+                                    OPTIONS ${CPPCHECK_OPTIONS}
                                     ${EXTRA_ARGS})
 
-    cppcheck_add_to_global_unused_function_check (SOURCES
-                                                  ${${SOURCES_VAR}}
-                                                  INCLUDES
-                                                  ${CPPCHECK_INCLUDES})
+    cppcheck_add_to_global_unused_function_check (SOURCES ${CPPCHECK_SOURCES}
+                                                  INCLUDES ${CPPCHECK_INCLUDES})
 
 endfunction (cppcheck_sources)
 
@@ -274,7 +286,6 @@ endfunction (cppcheck_sources)
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
 # [Optional] CHECK_UNUSED : Check for unused functions
-# [Optional] CHECK_TARGET_HEADERS : Also check header files on TARGET
 # [Optional] INCLUDES : Check header files in specified include directories.
 function (cppcheck_target_sources TARGET)
 
@@ -301,10 +312,9 @@ function (cppcheck_target_sources TARGET)
                            "${MULTIVALUE_OPTIONS}"
                            ${ARGN})
 
-    cppcheck_sources (_files_to_check
-                      ${TARGET}
-                      INCLUDES
-                      ${CPPCHECK_INCLUDES}
+    cppcheck_sources (${TARGET}
+                      INCLUDES ${CPPCHECK_INCLUDES}
+                      SOURCES ${_files_to_check}
                       ${ARGN})
 
 endfunction (cppcheck_target_sources)
