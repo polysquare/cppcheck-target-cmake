@@ -38,6 +38,10 @@ add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckWarnOnly
                       CreateTargetForGlobalUnusedFunctionCheckWarnOnlyVerify)
 add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckIncludes
                       CreateTargetForGlobalUnusedFunctionCheckIncludesVerify)
+add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckGenerated
+                      CreateTargetForGlobalUnusedFunctionCheckGeneratedVerify)
+add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckNoGeneratedDefault
+                      CreateTargetForGlobalUnusedFunctionCheckNoGeneratedDefaultVerify)
 add_cmake_build_test (CheckTargetSources
                       CheckTargetSourcesVerify)
 add_cmake_build_test (CheckTargetSourcesComment
@@ -50,3 +54,7 @@ add_cmake_build_test (CheckTargetSourcesCheckUnused
                       CheckTargetSourcesCheckUnusedVerify)
 add_cmake_build_test (CheckTargetSourcesIncludes
                       CheckTargetSourcesIncludesVerify)
+add_cmake_build_test (CheckTargetSourcesGenerated
+                      CheckTargetSourcesGeneratedVerify)
+add_cmake_build_test (CheckTargetSourcesNoGeneratedDefault
+                      CheckTargetSourcesNoGeneratedDefaultVerify)

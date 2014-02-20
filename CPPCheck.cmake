@@ -30,9 +30,41 @@ function (_validate_cppcheck CONTINUE)
 
 endfunction (_validate_cppcheck)
 
+function (_filter_out_generated_sources RESULT_VARIABLE)
+
+    set (FILTER_OUT_MUTLIVAR_OPTIONS SOURCES)
+
+    cmake_parse_arguments (FILTER_OUT
+                           ""
+                           ""
+                           "${FILTER_OUT_MUTLIVAR_OPTIONS}"
+                           ${ARGN})
+
+    set (${RESULT_VARIABLE} PARENT_SCOPE)
+    set (FILTERED_SOURCES)
+
+    foreach (SOURCE ${FILTER_OUT_SOURCES})
+
+        get_property (SOURCE_IS_GENERATED
+                      SOURCE ${SOURCE}
+                      PROPERTY GENERATED)
+
+        if (NOT SOURCE_IS_GENERATED)
+
+            list (APPEND FILTERED_SOURCES ${SOURCE})
+
+        endif (NOT SOURCE_IS_GENERATED)
+
+    endforeach ()
+
+    set (${RESULT_VARIABLE} ${FILTERED_SOURCES} PARENT_SCOPE)
+
+endfunction (_filter_out_generated_sources)
+
 function (_cppcheck_add_checks_to_target TARGET
                                          WHEN)
 
+    set (ADD_CHECKS_OPTIONS CHECK_GENERATED)
     set (ADD_CHECKS_SINGLEVAR_OPTIONS COMMENT)
     set (ADD_CHECKS_MULTIVAR_OPTIONS SOURCES OPTIONS)
 
@@ -70,19 +102,39 @@ endfunction (_cppcheck_add_checks_to_target)
 # [Optional] SOURCES : A variable containing a list of sources
 # [Optional] INCLUDES : A list of include directories used to
 #                       build these sources.
+# [Optional] CHECK_GENERATED: Whether to check generated sources too.
 function (cppcheck_add_to_global_unused_function_check)
 
+    set (GLOBAL_CHECK_OPTION_ARGS
+         CHECK_GENERATED)
     set (GLOBAL_CHECK_MULTIVAR_ARGS
          SOURCES
          INCLUDES)
 
     cmake_parse_arguments (GLOBAL_CHECK
-                           ""
+                           "${GLOBAL_CHECK_OPTION_ARGS}"
                            ""
                            "${GLOBAL_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
-    foreach (SOURCE ${GLOBAL_CHECK_SOURCES})
+    set (FILTERED_CHECK_SOURCES)
+
+    # First case: We're checking generated sources, so
+    # we can just check all passed in sources.
+    if (GLOBAL_CHECK_CHECK_GENERATED)
+
+        set (FILTERED_CHECK_SOURCES ${GLOBAL_CHECK_SOURCES})
+
+    # Second case: We only want to check real sources,
+    # so filter out generated ones.
+    else (GLOBAL_CHECK_CHECK_GENERATED)
+
+        _filter_out_generated_sources (FILTERED_CHECK_SOURCES
+                                       SOURCES ${GLOBAL_CHECK_SOURCES})
+
+    endif (GLOBAL_CHECK_CHECK_GENERATED)
+
+    foreach (SOURCE ${FILTERED_CHECK_SOURCES})
 
         set_property (GLOBAL
                       APPEND
@@ -194,10 +246,14 @@ endfunction (cppcheck_add_global_unused_function_check_to_target)
 #
 # TARGET : Target to attach checks to
 # [Mandatory] SOURCES : A list of sources to scan.
-# [Optional] COMMENT : Text to print when checking sources
+# [Optional] COMMENT : Text to print when checking sources.
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
-# [Optional] NO_CHECK_STYLE : Don't check for style issues
-# [Optional] CHECK_UNUSED : Check for unused functions
+# [Optional] NO_CHECK_STYLE : Don't check for style issues.
+# [Optional] CHECK_UNUSED : Check for unused functions.
+# [Optional] CHECK_GENERATED : Also check generated sources.
+# [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
+#            the unused function check. This option works independently of
+#            the CHECK_GENERATED option.
 # [Optional] INCLUDES : Include directories to search.
 function (cppcheck_sources TARGET)
 
@@ -209,7 +265,12 @@ function (cppcheck_sources TARGET)
 
     endif (NOT CPPCHECK_AVAILABLE)
 
-    set (OPTIONAL_OPTIONS WARN_ONLY NO_CHECK_STYLE NO_CHECK_UNUSED)
+    set (OPTIONAL_OPTIONS
+         WARN_ONLY
+         NO_CHECK_STYLE
+         NO_CHECK_UNUSED
+         CHECK_GENERATED
+         CHECK_GENERATED_FOR_UNUSED)
     set (SINGLEVALUE_OPTIONS COMMENT)
     set (MULTIVALUE_OPTIONS INCLUDES SOURCES)
     cmake_parse_arguments (CPPCHECK
@@ -218,11 +279,30 @@ function (cppcheck_sources TARGET)
                            "${MULTIVALUE_OPTIONS}"
                            ${ARGN})
 
-    if (NOT CPPCHECK_SOURCES)
+    set (FILTERED_CHECK_SOURCES)
 
-        message (FATAL_ERROR "SOURCES must be set when using cppcheck_sources")
+    # First case: We're checking generated sources, so
+    # we can just check all passed in sources.
+    if (CPPCHECK_CHECK_GENERATED)
 
-    endif (NOT CPPCHECK_SOURCES)
+        set (FILTERED_CHECK_SOURCES ${CPPCHECK_SOURCES})
+
+    # Second case: We only want to check real sources,
+    # so filter out generated ones.
+    else (CPPCHECK_CHECK_GENERATED)
+
+        _filter_out_generated_sources (FILTERED_CHECK_SOURCES
+                                       SOURCES ${CPPCHECK_SOURCES})
+
+    endif (CPPCHECK_CHECK_GENERATED)
+
+    if (NOT FILTERED_CHECK_SOURCES)
+
+        message (FATAL_ERROR "SOURCES must be set to either native sources "
+                 "or generated sources with the CHECK_GENERATED flag set "
+                 "when using cppcheck_sources")
+
+    endif (NOT FILTERED_CHECK_SOURCES)
 
     set (CPPCHECK_OPTIONS
          ${CPPCHECK_COMMON_OPTIONS}
@@ -267,12 +347,28 @@ function (cppcheck_sources TARGET)
 
     _cppcheck_add_checks_to_target (${TARGET}
                                     PRE_LINK
-                                    SOURCES ${CPPCHECK_SOURCES}
+                                    SOURCES ${FILTERED_CHECK_SOURCES}
                                     OPTIONS ${CPPCHECK_OPTIONS}
                                     ${EXTRA_ARGS})
 
-    cppcheck_add_to_global_unused_function_check (SOURCES ${CPPCHECK_SOURCES}
-                                                  INCLUDES ${CPPCHECK_INCLUDES})
+    # Even thought we might have filtered out sources here, it might still
+    # be desirable to pass them to the global unused function check.
+    set (UNUSED_CHECK_SOURCES)
+
+    if (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
+
+        set (UNUSED_CHECK_SOURCES ${CPPCHECK_SOURCES})
+
+    else (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
+
+        set (UNUSED_CHECK_SOURCES ${FILTERED_CHECK_SOURCES})
+
+    endif (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
+
+    cppcheck_add_to_global_unused_function_check (SOURCES
+                                                  ${UNUSED_CHECK_SOURCES}
+                                                  INCLUDES
+                                                  ${CPPCHECK_INCLUDES})
 
 endfunction (cppcheck_sources)
 
@@ -286,6 +382,10 @@ endfunction (cppcheck_sources)
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
 # [Optional] CHECK_UNUSED : Check for unused functions
+# [Optional] CHECK_GENERATED : Also check generated sources.
+# [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
+#            the unused function check. This option works independently of
+#            the CHECK_GENERATED option.
 # [Optional] INCLUDES : Check header files in specified include directories.
 function (cppcheck_target_sources TARGET)
 
