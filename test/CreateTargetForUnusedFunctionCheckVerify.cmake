@@ -1,4 +1,4 @@
-# /test/CreateTargetForGlobalUnusedFunctionCheckVerify.cmake
+# /test/CreateTargetForUnusedFunctionCheckVerify.cmake
 # Verifies that cppcheck was called for our nominated sources
 # on the custom target, along with --enable=unusedFunction and
 # all the members in CPPCHECK_COMMON_OPTIONS.

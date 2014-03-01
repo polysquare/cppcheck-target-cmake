@@ -1,4 +1,4 @@
-# /test/CreateTargetForGlobalUnusedFunctionCheckWarnOnlyVerify.cmake
+# /test/CreateTargetForUnusedFunctionChecWarnOnlyVerify.cmake
 # Verifies that cppcheck was called for our nominated sources
 # on the custom target, without --error-exitcode=1
 #

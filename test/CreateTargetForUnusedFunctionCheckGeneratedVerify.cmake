@@ -1,4 +1,4 @@
-# /test/CreateTargetForGlobalUnusedFunctionCheckGeneratedVerify.cmake
+# /test/CreateTargetForUnusedFunctionCheckGeneratedVerify.cmake
 # Verifies that cppcheck was called for our nominated sources
 # and generated sources on the custom target.
 #
