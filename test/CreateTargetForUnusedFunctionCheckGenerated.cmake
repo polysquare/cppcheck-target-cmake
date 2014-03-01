@@ -1,4 +1,4 @@
-# /test/CreateTargetForGlobalUnusedFunctionCheckGenerated.cmake
+# /test/CreateTargetForUnusedFunctionCheckGenerated.cmake
 # Adds some sources and generated sources to the global unused function check -
 # passing the CHECK_GENERATED flag.
 #
@@ -19,13 +19,11 @@ file (WRITE ${SOURCES} "")
 add_custom_command (OUTPUT ${GENERATED_SOURCES}
                     COMMAND ${CMAKE_COMMAND} -E touch ${GENERATED_SOURCES})
 
-cppcheck_add_to_global_unused_function_check (SOURCES
-                                              ${SOURCES}
-                                              ${GENERATED_SOURCES}
-                                              CHECK_GENERATED)
-
-add_custom_target (on_all ALL
-	               DEPENDS ${GENERATED_SOURCES})
+cppcheck_add_to_unused_function_check (global
+                                       SOURCES
+                                       ${SOURCES}
+                                       ${GENERATED_SOURCES}
+                                       CHECK_GENERATED)
 
 # Put CMAKE_CURRENT_SOURCE_DIR in the global INCLUDES
-cppcheck_add_global_unused_function_check_to_target (on_all)
+cppcheck_add_unused_function_check_with_name (global)

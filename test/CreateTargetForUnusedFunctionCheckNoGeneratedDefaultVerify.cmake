@@ -1,4 +1,4 @@
-# /test/CreateTargetForGlobalUnusedFunctionCheckNoGeneratedDefaultVerify.cmake
+# /test/CreateTargetForUnusedFunctionCheckNoGeneratedDefaultVerify.cmake
 # Verifies that cppcheck is called on our target but only for non-generated
 # sources.
 #

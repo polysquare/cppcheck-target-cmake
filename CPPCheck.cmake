@@ -61,6 +61,24 @@ function (_filter_out_generated_sources RESULT_VARIABLE)
 
 endfunction (_filter_out_generated_sources)
 
+function (_cppcheck_get_commandline COMMANDLINE_RETURN)
+
+    set (COMMANDLINE_MULTIVAR_OPTIONS SOURCES OPTIONS)
+
+    cmake_parse_arguments (COMMANDLINE
+                           ""
+                           ""
+                           "${COMMANDLINE_MULTIVAR_OPTIONS}"
+                           ${ARGN})
+
+    set (${COMMANDLINE_RETURN}
+         ${CPPCHECK_EXECUTABLE}
+         ${COMMANDLINE_OPTIONS}
+         ${COMMANDLINE_SOURCES}
+         PARENT_SCOPE)
+
+endfunction ()
+
 function (_cppcheck_add_checks_to_target TARGET
                                          WHEN)
 
@@ -82,16 +100,47 @@ function (_cppcheck_add_checks_to_target TARGET
 
     endif (ADD_CHECKS_TO_TARGET_COMMENT)
 
+    _cppcheck_get_commandline (CPPCHECK_COMMAND
+                               SOURCES ${ADD_CHECKS_TO_TARGET_SOURCES}
+                               OPTIONS ${ADD_CHECKS_TO_TARGET_OPTIONS})
+
     add_custom_command (TARGET ${TARGET}
                         ${WHEN}
                         COMMAND
-                        ${CPPCHECK_EXECUTABLE}
-                        ARGS
-                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
-                        ${ADD_CHECKS_TO_TARGET_SOURCES}
+                        ${CPPCHECK_COMMAND}
                         ${EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND})
 
 endfunction (_cppcheck_add_checks_to_target)
+
+function (_append_to_global_property_unique PROPERTY ITEM)
+
+    get_property (GLOBAL_PROPERTY
+                  GLOBAL
+                  PROPERTY ${PROPERTY})
+
+    set (LIST_CONTAINS_ITEM FALSE)
+
+    foreach (LIST_ITEM ${GLOBAL_PROPERTY})
+
+        if (LIST_ITEM STREQUAL ${ITEM})
+
+            set (LIST_CONTAINS_ITEM TRUE)
+            break ()
+
+        endif (LIST_ITEM STREQUAL ${ITEM})
+
+    endforeach ()
+
+    if (NOT LIST_CONTAINS_ITEM)
+
+        set_property (GLOBAL
+                      APPEND
+                      PROPERTY ${PROPERTY}
+                      ${ITEM})
+
+    endif (NOT LIST_CONTAINS_ITEM)
+
+endfunction ()
 
 # cppcheck_add_to_global_unused_function_check
 #
@@ -99,71 +148,95 @@ endfunction (_cppcheck_add_checks_to_target)
 # list of source files to check during the global unused function
 # target
 #
+# WHICH : A unique identifier for the unused function check to which
+#         these sources, targets and includes should be added to.
+# [Optional] TARGETS : A list of targets which the check should depend on.
+#                      Ideally this should be a target which would cause
+#                      the relevant sources to be re-generated or re-built.
+#                      If it is, then the unused function check rule is
+#                      guarunteed to run only after those sources have been
+#                      updated.
 # [Optional] SOURCES : A variable containing a list of sources
 # [Optional] INCLUDES : A list of include directories used to
 #                       build these sources.
 # [Optional] CHECK_GENERATED: Whether to check generated sources too.
-function (cppcheck_add_to_global_unused_function_check)
+function (cppcheck_add_to_unused_function_check WHICH)
 
-    set (GLOBAL_CHECK_OPTION_ARGS
+    set (UNUSED_CHECK_OPTION_ARGS
          CHECK_GENERATED)
-    set (GLOBAL_CHECK_MULTIVAR_ARGS
+    set (UNUSED_CHECK_MULTIVAR_ARGS
+         TARGETS
          SOURCES
          INCLUDES)
 
-    cmake_parse_arguments (GLOBAL_CHECK
-                           "${GLOBAL_CHECK_OPTION_ARGS}"
+    cmake_parse_arguments (UNUSED_CHECK
+                           "${UNUSED_CHECK_OPTION_ARGS}"
                            ""
-                           "${GLOBAL_CHECK_MULTIVAR_ARGS}"
+                           "${UNUSED_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
     set (FILTERED_CHECK_SOURCES)
 
     # First case: We're checking generated sources, so
     # we can just check all passed in sources.
-    if (GLOBAL_CHECK_CHECK_GENERATED)
+    if (UNUSED_CHECK_CHECK_GENERATED)
 
-        set (FILTERED_CHECK_SOURCES ${GLOBAL_CHECK_SOURCES})
+        set (FILTERED_CHECK_SOURCES ${UNUSED_CHECK_SOURCES})
 
     # Second case: We only want to check real sources,
     # so filter out generated ones.
-    else (GLOBAL_CHECK_CHECK_GENERATED)
+    else (UNUSED_CHECK_CHECK_GENERATED)
 
         _filter_out_generated_sources (FILTERED_CHECK_SOURCES
-                                       SOURCES ${GLOBAL_CHECK_SOURCES})
+                                       SOURCES ${UNUSED_CHECK_SOURCES})
 
-    endif (GLOBAL_CHECK_CHECK_GENERATED)
+    endif (UNUSED_CHECK_CHECK_GENERATED)
+
+    _append_to_global_property_unique (CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES
+                                       ${WHICH})
 
     foreach (SOURCE ${FILTERED_CHECK_SOURCES})
 
         set_property (GLOBAL
                       APPEND
-                      PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES
+                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
                       ${SOURCE})
 
     endforeach ()
 
-    foreach (INCLUDE ${GLOBAL_CHECK_INCLUDES})
+    foreach (INCLUDE ${UNUSED_CHECK_INCLUDES})
 
         set_property (GLOBAL
                       APPEND
-                      PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES
+                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES
                       ${INCLUDE})
 
     endforeach ()
 
-endfunction (cppcheck_add_to_global_unused_function_check)
+    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.stamp)
 
-# cppcheck_add_global_unused_function_check_to_target
+    foreach (TARGET ${UNUSED_CHECK_TARGETS})
+
+        set_property (GLOBAL
+                      APPEND
+                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS
+                      ${TARGET})
+
+    endforeach ()
+
+endfunction (cppcheck_add_to_unused_function_check)
+
+# cppcheck_add_unused_function_check_with_name
 #
-# Adds a global check of all registered source files for unused functions to
-# the specified TARGET
+# Indicates that we have finished collecting sources for a particular global
+# unused function check and a target with the same name as the identifier
+# should be added to perform that check.
 #
-# TARGET : Target to add checks to
+# WHICH : A unique identifier for the unused function check.
 # [Optional] WARN_ONLY : Only print warnings if there are unused functions,
 #                        do not error out
 # [Optional] INCLUDES : Include directories to search when analyzing.
-function (cppcheck_add_global_unused_function_check_to_target TARGET)
+function (cppcheck_add_unused_function_check_with_name WHICH)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
 
@@ -173,9 +246,32 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     endif ()
 
+    get_property (_cppcheck_unused_function_check_names
+                  GLOBAL
+                  PROPERTY CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES)
+
+    set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME FALSE)
+
+    foreach (NAME ${_cppcheck_unused_function_check_names})
+
+        if (NAME STREQUAL ${WHICH})
+
+            set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME TRUE)
+            break ()
+
+        endif (NAME STREQUAL ${WHICH})
+
+    endforeach ()
+
+    if (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
+
+        message (SEND_ERROR "No unused function check with name ${WHICH} exists")
+
+    endif (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
+
     get_property (_cppcheck_unused_function_sources_set
                   GLOBAL
-                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES
+                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
                   SET)
 
     if (NOT _cppcheck_unused_function_sources_set)
@@ -202,11 +298,15 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     get_property (_cppcheck_unused_function_sources
                   GLOBAL
-                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_SOURCES)
+                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES)
 
     get_property (_cppcheck_unused_function_includes
                   GLOBAL
-                  PROPERTY CPPCHECK_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
+                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES)
+
+    get_property (_cppcheck_unused_function_targets
+                  GLOBAL
+                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS)
 
     set (OPTIONS
          ${CPPCHECK_COMMON_OPTIONS}
@@ -231,13 +331,29 @@ function (cppcheck_add_global_unused_function_check_to_target TARGET)
 
     endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
 
-    _cppcheck_add_checks_to_target (${TARGET}
-                                    PRE_BUILD
-                                    SOURCES ${_cppcheck_unused_function_sources}
-                                    OPTIONS ${OPTIONS}
-                                    COMMENT "Checking for unused functions")
+    _cppcheck_get_commandline (CPPCHECK_COMMAND
+                               SOURCES ${_cppcheck_unused_function_sources}
+                               OPTIONS ${OPTIONS})
 
-endfunction (cppcheck_add_global_unused_function_check_to_target)
+    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.stamp)
+
+    add_custom_command (OUTPUT ${STAMPFILE}
+                        COMMAND ${CPPCHECK_COMMAND}
+                        COMMAND ${CMAKE_COMMAND} -E touch ${STAMPFILE}
+                        DEPENDS ${_cppcheck_unused_function_sources}
+                        COMMENT "Running unused function check: ${WHICH}")
+
+    add_custom_target (${WHICH} ALL
+                       DEPENDS
+                       ${STAMPFILE})
+
+    if (_cppcheck_unused_function_targets)
+
+        add_dependencies (${WHICH} ${_cppcheck_unused_function_targets})
+
+    endif (_cppcheck_unused_function_targets)
+
+endfunction (cppcheck_add_unused_function_check_with_name)
 
 # cppcheck_sources
 #
@@ -351,31 +467,35 @@ function (cppcheck_sources TARGET)
                                     OPTIONS ${CPPCHECK_OPTIONS}
                                     ${EXTRA_ARGS})
 
-    # Even thought we might have filtered out sources here, it might still
-    # be desirable to pass them to the global unused function check.
-    set (UNUSED_CHECK_SOURCES)
-
-    if (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
-
-        set (UNUSED_CHECK_SOURCES ${CPPCHECK_SOURCES})
-
-    else (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
-
-        set (UNUSED_CHECK_SOURCES ${FILTERED_CHECK_SOURCES})
-
-    endif (CPPCHECK_CHECK_GENERATED_FOR_UNUSED)
-
-    cppcheck_add_to_global_unused_function_check (SOURCES
-                                                  ${UNUSED_CHECK_SOURCES}
-                                                  INCLUDES
-                                                  ${CPPCHECK_INCLUDES})
-
 endfunction (cppcheck_sources)
+
+function (_get_target_c_or_cxx_sources RETURN_SOURCES TARGET)
+
+    get_target_property (_sources ${TARGET} SOURCES)
+    set (_files_to_check)
+    foreach (_file ${_sources})
+
+        get_source_file_property (_lang ${_file} LANGUAGE)
+        get_source_file_property (_location ${_file} LOCATION)
+
+        if ("${_lang}" MATCHES "CXX" OR
+            "${_lang}" MATCHES "C")
+
+            list (APPEND _files_to_check ${_location})
+
+        endif ("${_lang}" MATCHES "CXX" OR
+               "${_lang}" MATCHES "C")
+
+    endforeach ()
+
+    set (${RETURN_SOURCES} ${_files_to_check} PARENT_SCOPE)
+
+endfunction ()
 
 # cppcheck_target_sources
 #
 # Run CPPCheck on all the sources for a particular TARGET, reporting any
-# warnigns or errors on stderr
+# warnings or errors on stderr
 #
 # TARGET : Target to check sources on
 # [Optional] COMMENT : Text to print when checking sources
@@ -389,20 +509,7 @@ endfunction (cppcheck_sources)
 # [Optional] INCLUDES : Check header files in specified include directories.
 function (cppcheck_target_sources TARGET)
 
-    get_target_property (_sources ${TARGET} SOURCES)
-    set (_files_to_check)
-    foreach (_file ${_sources})
-
-        get_source_file_property (_lang ${_file} LANGUAGE)
-        get_source_file_property (_location ${_file} LOCATION)
-
-        if ("${_lang}" MATCHES "CXX")
-
-            list (APPEND _files_to_check ${_location})
-
-        endif ("${_lang}" MATCHES "CXX")
-
-    endforeach ()
+    _get_target_c_or_cxx_sources (_files_to_check ${TARGET})
 
     set (EXTRA_OPTIONS)
     set (MULTIVALUE_OPTIONS INCLUDES)
@@ -418,3 +525,30 @@ function (cppcheck_target_sources TARGET)
                       ${ARGN})
 
 endfunction (cppcheck_target_sources)
+
+# cppcheck_add_target_sources_to_unused_function_check
+#
+# Adds sources files attached to the specified TARGET to
+# the unused function check specified by WHICH.
+#
+# TARGET : Target with the source files to add to the unused
+#          function check
+# WHICH : The name of the unused function check to add the
+#         source files to.
+# [Optional] INCLUDES : Include directories to scan when parsing
+#            the sources for this target.
+# [Optional] NO_CHECK_GENERATED : Do not add generated files
+#            to the unused function check.
+function (cppcheck_add_target_sources_to_unused_function_check TARGET
+                                                               WHICH)
+
+    _get_target_c_or_cxx_sources (_files_to_check ${TARGET})
+
+    cppcheck_add_to_unused_function_check (${WHICH}
+                                           TARGETS ${TARGET}
+                                           SOURCES ${_files_to_check}
+                                           ${ARGN})
+
+endfunction ()
+
+

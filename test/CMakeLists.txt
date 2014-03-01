@@ -3,6 +3,12 @@
 #
 # See LICENCE.md for Copyright information
 
+if (POLICY CMP0025)
+
+    cmake_policy (SET CMP0025 NEW)
+
+endif (POLICY CMP0025)
+project (CMakeCPPCheckTests)
 cmake_minimum_required (VERSION 2.8)
 
 # We assume that it is one-above us
@@ -31,17 +37,19 @@ include (CMakeUnitRunner)
 bootstrap_cmake_unit (INITIAL_CACHE_CONTENTS
                       CPPCHECK_INITIAL_CACHE_CONTENTS)
 
-add_cmake_test (AddSourcesToGlobalUnusedFunctionCheck)
-add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheck
-                      CreateTargetForGlobalUnusedFunctionCheckVerify)
-add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckWarnOnly
-                      CreateTargetForGlobalUnusedFunctionCheckWarnOnlyVerify)
-add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckIncludes
-                      CreateTargetForGlobalUnusedFunctionCheckIncludesVerify)
-add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckGenerated
-                      CreateTargetForGlobalUnusedFunctionCheckGeneratedVerify)
-add_cmake_build_test (CreateTargetForGlobalUnusedFunctionCheckNoGeneratedDefault
-                      CreateTargetForGlobalUnusedFunctionCheckNoGeneratedDefaultVerify)
+add_cmake_test (AddSourcesToUnusedFunctionCheck)
+add_cmake_test (AddUnusedFunctionCheckWithNameAddsTarget)
+add_cmake_test (AddingDuplicatedUnusedCheckGivesUniqueEntry)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheck
+                      CreateTargetForUnusedFunctionCheckVerify)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheckWarnOnly
+                      CreateTargetForUnusedFunctionCheckWarnOnlyVerify)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheckIncludes
+                      CreateTargetForUnusedFunctionCheckIncludesVerify)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheckGenerated
+                      CreateTargetForUnusedFunctionCheckGeneratedVerify)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheckNoGeneratedDefault
+                      CreateTargetForUnusedFunctionCheckNoGeneratedDefaultVerify)
 add_cmake_build_test (CheckTargetSources
                       CheckTargetSourcesVerify)
 add_cmake_build_test (CheckTargetSourcesComment
@@ -58,3 +66,11 @@ add_cmake_build_test (CheckTargetSourcesGenerated
                       CheckTargetSourcesGeneratedVerify)
 add_cmake_build_test (CheckTargetSourcesNoGeneratedDefault
                       CheckTargetSourcesNoGeneratedDefaultVerify)
+add_cmake_build_test (StampfileGeneratedForUnusedFunctionCheck
+                      StampfileGeneratedForUnusedFunctionCheckVerify)
+add_cmake_build_test (MultipleUnusedFunctionChecksCoexist
+                      MultipleUnusedFunctionChecksCoexistVerify)
+add_cmake_build_test (UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExists
+                      UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExistsVerify)
+add_cmake_build_test (UnusedFunctionCheckNotRunIfStampfileExists
+                      UnusedFunctionCheckNotRunIfStampfileExistsVerify)
