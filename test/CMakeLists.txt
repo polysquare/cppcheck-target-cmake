@@ -40,6 +40,7 @@ bootstrap_cmake_unit (INITIAL_CACHE_CONTENTS
 add_cmake_test (AddSourcesToUnusedFunctionCheck)
 add_cmake_test (AddUnusedFunctionCheckWithNameAddsTarget)
 add_cmake_test (AddingDuplicatedUnusedCheckGivesUniqueEntry)
+add_cmake_test (GetUnusedFunctionChecks)
 add_cmake_build_test (CreateTargetForUnusedFunctionCheck
                       CreateTargetForUnusedFunctionCheckVerify)
 add_cmake_build_test (CreateTargetForUnusedFunctionCheckWarnOnly
