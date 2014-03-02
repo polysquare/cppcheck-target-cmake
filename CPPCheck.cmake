@@ -226,6 +226,22 @@ function (cppcheck_add_to_unused_function_check WHICH)
 
 endfunction (cppcheck_add_to_unused_function_check)
 
+# cppcheck_get_unused_function_checks
+#
+# Get a list of all unused function checks that have been added, even if
+# their targets have not yet been added.
+#
+# RESULT_VARIABLE: A variable in which to store the resulting list.
+function (cppcheck_get_unused_function_checks RESULT_VARIABLE)
+
+    get_property (UNUSED_CHECKS
+                  GLOBAL
+                  PROPERTY CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES)
+
+    set (${RESULT_VARIABLE} ${UNUSED_CHECKS} PARENT_SCOPE)
+
+endfunction (cppcheck_get_unused_function_checks)
+
 # cppcheck_add_unused_function_check_with_name
 #
 # Indicates that we have finished collecting sources for a particular global
@@ -266,6 +282,7 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
     if (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
 
         message (SEND_ERROR "No unused function check with name ${WHICH} exists")
+        return ()
 
     endif (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
 
