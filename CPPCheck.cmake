@@ -429,6 +429,20 @@ function (cppcheck_sources TARGET)
 
     endif (CPPCHECK_CHECK_GENERATED)
 
+    # Figure out if this target is linkable. If it is a UTILITY
+    # target then we need to run the checks at the PRE_BUILD stage.
+    set (WHEN PRE_LINK)
+
+    get_property (TARGET_TYPE
+                  TARGET ${TARGET}
+                  PROPERTY TYPE)
+
+    if (TARGET_TYPE STREQUAL "UTILITY")
+
+        set (WHEN PRE_BUILD)
+
+    endif (TARGET_TYPE STREQUAL "UTILITY")
+
     if (NOT FILTERED_CHECK_SOURCES)
 
         message (FATAL_ERROR "SOURCES must be set to either native sources "
@@ -479,7 +493,7 @@ function (cppcheck_sources TARGET)
     endif (CPPCHECK_COMMENT)
 
     _cppcheck_add_checks_to_target (${TARGET}
-                                    PRE_LINK
+                                    ${WHEN}
                                     SOURCES ${FILTERED_CHECK_SOURCES}
                                     OPTIONS ${CPPCHECK_OPTIONS}
                                     ${EXTRA_ARGS})

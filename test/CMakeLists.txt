@@ -75,3 +75,5 @@ add_cmake_build_test (UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExists
                       UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExistsVerify)
 add_cmake_build_test (UnusedFunctionCheckNotRunIfStampfileExists
                       UnusedFunctionCheckNotRunIfStampfileExistsVerify)
+add_cmake_build_test (CheckGeneratedSourcesOnNonBinaryTarget
+                      CheckGeneratedSourcesOnNonBinaryTargetVerify)
