@@ -53,8 +53,6 @@ add_cmake_build_test (CreateTargetForUnusedFunctionCheckNoGeneratedDefault
                       CreateTargetForUnusedFunctionCheckNoGeneratedDefaultVerify)
 add_cmake_build_test (CheckTargetSources
                       CheckTargetSourcesVerify)
-add_cmake_build_test (CheckTargetSourcesComment
-                      CheckTargetSourcesCommentVerify)
 add_cmake_build_test (CheckTargetSourcesWarnOnly
                       CheckTargetSourcesWarnOnlyVerify)
 add_cmake_build_test (CheckTargetSourcesNoCheckStyle
@@ -73,7 +71,14 @@ add_cmake_build_test (MultipleUnusedFunctionChecksCoexist
                       MultipleUnusedFunctionChecksCoexistVerify)
 add_cmake_build_test (UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExists
                       UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExistsVerify)
-add_cmake_build_test (UnusedFunctionCheckNotRunIfStampfileExists
-                      UnusedFunctionCheckNotRunIfStampfileExistsVerify)
+
+# The ninja generator does dependency scanning at the start of the build
+# so we can't fool it into skipping this dependency by generating the
+# stampfile during the build.
+if (NOT CMAKE_GENERATOR STREQUAL "Ninja")
+    add_cmake_build_test (UnusedFunctionCheckNotRunIfStampfileExists
+                          UnusedFunctionCheckNotRunIfStampfileExistsVerify)
+endif (NOT CMAKE_GENERATOR STREQUAL "Ninja")
+
 add_cmake_build_test (CheckGeneratedSourcesOnNonBinaryTarget
                       CheckGeneratedSourcesOnNonBinaryTargetVerify)

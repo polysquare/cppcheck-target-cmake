@@ -83,7 +83,6 @@ function (_cppcheck_add_checks_to_target TARGET
                                          WHEN)
 
     set (ADD_CHECKS_OPTIONS CHECK_GENERATED)
-    set (ADD_CHECKS_SINGLEVAR_OPTIONS COMMENT)
     set (ADD_CHECKS_MULTIVAR_OPTIONS SOURCES OPTIONS)
 
     cmake_parse_arguments (ADD_CHECKS_TO_TARGET
@@ -93,12 +92,6 @@ function (_cppcheck_add_checks_to_target TARGET
                            ${ARGN})
 
     set (EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND)
-    if (ADD_CHECKS_TO_TARGET_COMMENT)
-
-        set (EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND
-             COMMENT ${ADD_CHECKS_TO_TARGET_COMMENT})
-
-    endif (ADD_CHECKS_TO_TARGET_COMMENT)
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
                                SOURCES ${ADD_CHECKS_TO_TARGET_SOURCES}
@@ -379,7 +372,6 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 #
 # TARGET : Target to attach checks to
 # [Mandatory] SOURCES : A list of sources to scan.
-# [Optional] COMMENT : Text to print when checking sources.
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues.
 # [Optional] CHECK_UNUSED : Check for unused functions.
@@ -404,7 +396,6 @@ function (cppcheck_sources TARGET)
          NO_CHECK_UNUSED
          CHECK_GENERATED
          CHECK_GENERATED_FOR_UNUSED)
-    set (SINGLEVALUE_OPTIONS COMMENT)
     set (MULTIVALUE_OPTIONS INCLUDES SOURCES)
     cmake_parse_arguments (CPPCHECK
                            "${OPTIONAL_OPTIONS}"
@@ -486,12 +477,6 @@ function (cppcheck_sources TARGET)
 
     set (EXTRA_ARGS)
 
-    if (CPPCHECK_COMMENT)
-
-        list (APPEND EXTRA_ARGS COMMENT ${CPPCHECK_COMMENT})
-
-    endif (CPPCHECK_COMMENT)
-
     _cppcheck_add_checks_to_target (${TARGET}
                                     ${WHEN}
                                     SOURCES ${FILTERED_CHECK_SOURCES}
@@ -529,7 +514,6 @@ endfunction ()
 # warnings or errors on stderr
 #
 # TARGET : Target to check sources on
-# [Optional] COMMENT : Text to print when checking sources
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
 # [Optional] CHECK_UNUSED : Check for unused functions

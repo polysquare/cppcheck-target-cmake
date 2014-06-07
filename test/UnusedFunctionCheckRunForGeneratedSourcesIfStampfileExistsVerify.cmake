@@ -12,7 +12,7 @@ set (BUILD_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/BUILD.output)
 
 # First make sure that our files were generated as the build rule requires.
 assert_file_has_line_matching (${BUILD_OUTPUT}
-                               "^.*Generating.*Generated\\.cpp.*$")
+                               "^.*touch.*Generated\\.cpp.*$")
 
 # Now make sure that the cppcheck rule was run
 set (UNUSED_FUNCTION_REGEX
