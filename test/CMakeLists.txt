@@ -43,6 +43,8 @@ add_cmake_test (AddingDuplicatedUnusedCheckGivesUniqueEntry)
 add_cmake_test (GetUnusedFunctionChecks)
 add_cmake_build_test (CreateTargetForUnusedFunctionCheck
                       CreateTargetForUnusedFunctionCheckVerify)
+add_cmake_build_test (CreateTargetForUnusedFunctionCheckUnusedStructMember
+                      CreateTargetForUnusedFunctionCheckUnusedStructMemberVerify)
 add_cmake_build_test (CreateTargetForUnusedFunctionCheckWarnOnly
                       CreateTargetForUnusedFunctionCheckWarnOnlyVerify)
 add_cmake_build_test (CreateTargetForUnusedFunctionCheckIncludes
@@ -53,6 +55,8 @@ add_cmake_build_test (CreateTargetForUnusedFunctionCheckNoGeneratedDefault
                       CreateTargetForUnusedFunctionCheckNoGeneratedDefaultVerify)
 add_cmake_build_test (CheckTargetSources
                       CheckTargetSourcesVerify)
+add_cmake_build_test (CheckTargetSourcesNoUnusedStructCheckDefault
+                      CheckTargetSourcesNoUnusedStructCheckDefaultVerify)
 add_cmake_build_test (CheckTargetSourcesWarnOnly
                       CheckTargetSourcesWarnOnlyVerify)
 add_cmake_build_test (CheckTargetSourcesNoCheckStyle
