@@ -463,6 +463,10 @@ function (cppcheck_sources TARGET)
 
         list (APPEND CPPCHECK_OPTIONS --enable=unusedFunction)
 
+    else (CPPCHECK_CHECK_UNUSED)
+
+        list (APPEND CPPCHECK_OPTIONS --suppress=unusedStructMember)
+
     endif (CPPCHECK_CHECK_UNUSED)
 
     if (CPPCHECK_INCLUDES)

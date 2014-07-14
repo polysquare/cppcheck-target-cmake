@@ -1,4 +1,4 @@
-# /test/CreateTargetForUnusedFunctionCheckWarnOnly.cmake
+# /test/CreateTargetForUnusedFunctionCheckUnusedStructMember.cmake
 # Adds some sources to the global unused function check properties and adds
 # checks to a newly created external target.
 #
