@@ -1,6 +1,6 @@
 # /test/CreateTargetForUnusedFunctionCheckWarnOnly.cmake
 # Adds some sources to the global unused function check properties and adds
-# checks to a newly created external target, but only for warnings.
+# checks to a newly created external target.
 #
 # See LICENCE.md for Copyright Information.
 
@@ -17,4 +17,4 @@ cppcheck_add_to_unused_function_check (global
                                        SOURCES ${SOURCES})
 
 # Put CMAKE_CURRENT_SOURCE_DIR in the global INCLUDES
-cppcheck_add_unused_function_check_with_name (global WARN_ONLY)
+cppcheck_add_unused_function_check_with_name (global)
