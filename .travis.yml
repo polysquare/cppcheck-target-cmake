@@ -17,7 +17,7 @@ before_install:
 script:
   - mkdir -p test/build
   - pushd test/build
-  - which ninja
-  - cmake .. -G "${CMAKE_GENERATOR}"
-  - ctest --output-on-failure
-  - popd
+  - cmake .. -G "${CMAKE_GENERATOR}" &&
+    cmake --build `pwd` &&
+    ctest --output-on-failure &&
+    popd
