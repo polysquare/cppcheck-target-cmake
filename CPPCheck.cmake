@@ -26,6 +26,36 @@ function (_validate_cppcheck CONTINUE)
 
         set (${CONTINUE} TRUE PARENT_SCOPE)
 
+        # Check the version of cppcheck. If it is < 1.58 output a warning about
+        # detecting the language of header files
+        execute_process (COMMAND ${CPPCHECK_EXECUTABLE} --version
+                         OUTPUT_VARIABLE CPPCHECK_VERSION_OUTPUT)
+
+        string (LENGTH "Cppcheck " CPPCHECK_VERSION_HEADER_LENGTH)
+        set (CPPCHECK_VERSION_LENGTH 4)
+        string (SUBSTRING "${CPPCHECK_VERSION_OUTPUT}"
+                ${CPPCHECK_VERSION_HEADER_LENGTH} 
+                ${CPPCHECK_VERSION_LENGTH}
+                CPPCHECK_READ_VERSION)
+
+        set (CPPCHECK_VERSION ${CPPCHECK_READ_VERSION} CACHE STRING "" FORCE)
+        mark_as_advanced (CPPCHECK_VERSION)
+
+        message (STATUS "Detected cppcheck version ${CPPCHECK_VERSION}")
+
+        if (${CPPCHECK_VERSION} VERSION_LESS 1.58)
+
+            message (WARNING "Only cppcheck versions >= 1.58 support specifying"
+                             " a language for analysis. You may encounter false"
+                             " positives when scanning header files if cppcheck"
+                             " is unable to determine their source language."
+                             " Consider upgrading to a newer version of"
+                             " cppcheck, such that this script can specify the"
+                             " language of your header files after detecting"
+                             " them")
+
+        endif (${CPPCHECK_VERSION} VERSION_LESS 1.58)
+
     endif (NOT CPPCHECK_EXECUTABLE)
 
 endfunction (_validate_cppcheck)
@@ -79,31 +109,462 @@ function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
 endfunction ()
 
-function (_cppcheck_add_checks_to_target TARGET
-                                         WHEN)
+function (_get_absolute_path_to_header_file_language ABSOLUTE_PATH_TO_HEADER
+                                                     LANGUAGE)
 
-    set (ADD_CHECKS_OPTIONS CHECK_GENERATED)
-    set (ADD_CHECKS_MULTIVAR_OPTIONS SOURCES OPTIONS)
+    # ABSOLUTE_PATH is a GLOBAL property
+    # called "_CPPCHECK_H_MAP_" + ABSOLUTE_PATH.
+    # We can't address it immediately by that name though,
+    # because CMake properties and variables can only be
+    # addressed by certain characters, however, internally,
+    # they are stored as std::map <std::string, std::string>,
+    # so we can fool CMake into doing so.
+    #
+    # We first save our desired property string into a new
+    # variable called MAP_KEY and then use set
+    # ("${MAP_KEY}" ${LANGUAGE}). CMake will expand ${MAP_KEY}
+    # and pass the string directly to the internal
+    # implementation of "set", which sets the string
+    # as the key value
+    set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH_TO_HEADER}")
+    get_property (HEADER_FILE_LANGUAGE_SET GLOBAL PROPERTY "${MAP_KEY}" SET)
 
-    cmake_parse_arguments (ADD_CHECKS_TO_TARGET
+    if (HEADER_FILE_LANGUAGE_SET)
+
+        get_property (HEADER_FILE_LANGUAGE GLOBAL PROPERTY "${MAP_KEY}")
+        set (${LANGUAGE} ${HEADER_FILE_LANGUAGE} PARENT_SCOPE)
+        return ()
+
+    endif (HEADER_FILE_LANGUAGE_SET)
+
+    return ()
+
+endfunction ()
+
+function (_get_language_from_source_name SOURCE RETURN_LANGUAGE)
+
+    set (GET_LANG_OPTIONS "NO_HEADERS")
+
+    cmake_parse_arguments (GET_LANG
+                           "${GET_LANG_OPTIONS}"
                            ""
-                           "${ADD_CHECKS_SINGLEVAR_OPTIONS}"
-                           "${ADD_CHECKS_MULTIVAR_OPTIONS}"
+                           ""
                            ${ARGN})
 
-    set (EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND)
+    set (${RETURN_LANGUAGE} "" PARENT_SCOPE)
+
+    get_property (LANGUAGE SOURCE ${SOURCE} PROPERTY SET_LANGUAGE)
+
+    # User overrode the LANGUAGE property, use that.
+    if (DEFINED SET_LANGUAGE)
+
+       set (${LANGUAGE} ${SET_LANGUAGE} PARENT_SCOPE)
+       return ()
+
+    endif (DEFINED SET_LANGUAGE)
+
+    # Try and detect the language based on the file's extension
+    get_filename_component (EXTENSION ${SOURCE} EXT)
+    string (SUBSTRING ${EXTENSION} 1 -1 EXTENSION)
+
+    list (FIND CMAKE_C_SOURCE_FILE_EXTENSIONS ${EXTENSION} C_INDEX)
+
+    if (NOT C_INDEX EQUAL -1)
+
+        set (${RETURN_LANGUAGE} "C" PARENT_SCOPE)
+        return ()
+
+    endif (NOT C_INDEX EQUAL -1)
+
+    list (FIND CMAKE_CXX_SOURCE_FILE_EXTENSIONS ${EXTENSION} CXX_INDEX)
+
+    if (NOT CXX_INDEX EQUAL -1)
+
+        set (${RETURN_LANGUAGE} "CXX" PARENT_SCOPE)
+        return ()
+
+    endif ()
+
+    # Couldn't find source langauge from either extension or property.
+    # We might be scanning a header so check the header maps for a language
+    if (NOT GET_LANG_NO_HEADERS)
+
+        set (LANGUAGE "")
+        _get_absolute_path_to_header_file_language (${SOURCE} LANGUAGE)
+        set (${RETURN_LANGUAGE} ${LANGUAGE} PARENT_SCOPE)
+
+    endif (NOT GET_LANG_NO_HEADERS)
+
+endfunction () 
+
+function (_scan_source_file_for_headers)
+
+    set (SCAN_SINGLEVAR_ARGUMENTS SOURCE)
+    set (SCAN_MULTIVAR_ARGUMENTS INCLUDE_DIRECTORIES ALREADY_SCANNED CPP_IDENTIFIERS)
+
+    cmake_parse_arguments (SCAN
+                           ""
+                           "${SCAN_SINGLEVAR_ARGUMENTS}"
+                           "${SCAN_MULTIVAR_ARGUMENTS}"
+                           ${ARGN})
+
+    if (NOT DEFINED SCAN_SOURCE)
+
+        message (FATAL_ERROR "SOURCE must be set to use this function")
+
+    endif (NOT DEFINED SCAN_SOURCE)
+
+    # Source doesn't exist. This is fine, we might be recursively scanning
+    # a header path which is generated. If it is generated, gracefully bail
+    # out, otherwise exit with a FATAL_ERROR as this is really an assertion
+    if (NOT EXISTS ${SCAN_SOURCE})
+
+        get_property (SOURCE_IS_GENERATED SOURCE ${SCAN_SOURCE}
+                      PROPERTY GENERATED)
+
+        if (SOURCE_IS_GENERATED)
+
+            return ()
+
+        else (SOURCE_IS_GENERATED)
+
+            message (FATAL_ERROR "_scan_source_file_for_headers called with "
+                                 "a source file that does not exist or was "
+                                 "not generated as part of a build rule")
+
+        endif (SOURCE_IS_GENERATED)
+
+    endif (NOT EXISTS ${SCAN_SOURCE})
+
+    # We've already scanned this source file in this pass, bail out
+    list (FIND SCAN_ALREADY_SCANNED ${SCAN_SOURCE} SOURCE_INDEX)
+
+    if (NOT SOURCE_INDEX EQUAL -1)
+
+        return ()
+
+    endif (NOT SOURCE_INDEX EQUAL -1)
+
+    # Open the source file and read its contents
+    file (READ ${SCAN_SOURCE} SOURCE_CONTENTS)
+
+    # Split the read contents into lines, using ; as the delimiter
+    string (REGEX REPLACE ";" "\\\\;" SOURCE_CONTENTS "${SOURCE_CONTENTS}")
+    string (REGEX REPLACE "\n" ";" SOURCE_CONTENTS "${SOURCE_CONTENTS}")
+
+    _get_language_from_source_name (${SCAN_SOURCE} LANGUAGE)
+
+    foreach (LINE ${SOURCE_CONTENTS})
+
+        # This is an #include statement, check what is within it
+        if (LINE MATCHES "^.*\#include.*[<\"].*[>\"]")
+
+            # Start with ${LINE}
+            set (HEADER ${LINE})
+
+            # Trim out the beginning and end of the include statement
+            # Because CMake doesn't support non-greedy expressions (eg "?")
+            # we need to match based on indices and not using REGEX REPLACE
+            # so we need to use REGEX MATCH to get the first match and then
+            # FIND to get the index.
+            string (REGEX MATCH "[<\"]" PATH_START "${HEADER}")
+            string (FIND "${HEADER}" "${PATH_START}" PATH_START_INDEX)
+            math (EXPR PATH_START_INDEX "${PATH_START_INDEX} + 1")
+            string (SUBSTRING "${HEADER}" ${PATH_START_INDEX} -1 HEADER)
+
+            string (REGEX MATCH "[>\"]" PATH_END "${HEADER}")
+            string (FIND "${HEADER}" "${PATH_END}" PATH_END_INDEX)
+            string (SUBSTRING "${HEADER}" 0 ${PATH_END_INDEX} HEADER)
+
+            string (STRIP ${HEADER} HEADER)
+
+            foreach (INCLUDE_DIRECTORY ${SCAN_INCLUDE_DIRECTORIES})
+
+                set (RELATIVE_PATH "${INCLUDE_DIRECTORY}/${HEADER}")
+                get_filename_component (ABSOLUTE_PATH ${RELATIVE_PATH} ABSOLUTE)
+
+                # Header doesn't exist, don't update in map
+                get_property (HEADER_IS_GENERATED SOURCE ${ABSOLUTE_PATH}
+                              PROPERTY GENERATED)
+
+                if (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+
+                    break ()
+
+                endif (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+
+                # First see if a language has already been set for this header
+                # file. If so, and it is "C", then we can't change it any
+                # further at this point.
+                set (HEADER_LANGUAGE "")
+                _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
+                                                            HEADER_LANGUAGE)
+
+                set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH}")
+                set (UPDATE_HEADER_IN_MAP FALSE)
+
+                if (DEFINED HEADER_LANGUAGE AND
+                    NOT HEADER_LANGUAGE STREQUAL "C")
+
+                    set (UPDATE_HEADER_IN_MAP TRUE)
+
+                elseif (NOT DEFINED HEADER_LANGUAGE)
+
+                    set (UPDATE_HEADER_IN_MAP TRUE)
+
+                endif (DEFINED HEADER_LANGUAGE AND
+                       NOT HEADER_LANGUAGE STREQUAL "C")
+
+                if (UPDATE_HEADER_IN_MAP)
+
+                    set_property (GLOBAL PROPERTY "${MAP_KEY}" "${LANGUAGE}")
+
+                    # Recursively scan for header more header files in this one
+                    _scan_source_file_for_headers (SOURCE ${ABSOLUTE_PATH}
+                                                   INCLUDE_DIRECTORIES
+                                                   ${SCAN_INCLUDE_DIRECTORIES}
+                                                   ALREADY_SCANNED
+                                                   ${SCAN_ALREADY_SCANNED}
+                                                   ${SCAN_SOURCE}
+                                                   CPP_IDENTIFIERS
+                                                    ${SCAN_CPP_IDENTIFIERS})
+
+                endif (UPDATE_HEADER_IN_MAP)
+
+            endforeach ()
+
+       endif (LINE MATCHES "^.*\#include.*[<\"].*[>\"]")
+
+    endforeach ()
+
+endfunction ()
+
+function (_cppcheck_add_normal_check_command TARGET
+                                             WHEN)
+
+    set (ADD_NORMAL_CHECK_MULTIVAR_OPTIONS SOURCES OPTIONS)
+
+    cmake_parse_arguments (ADD_NORMAL_CHECK
+                           ""
+                           ""
+                           "${ADD_NORMAL_CHECK_MULTIVAR_OPTIONS}"
+                           ${ARGN})
+
+    # Silently return if we don't have any sources to scan here
+    if (NOT ADD_NORMAL_CHECK_SOURCES)
+
+        return ()
+
+    endif (NOT ADD_NORMAL_CHECK_SOURCES)
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
-                               SOURCES ${ADD_CHECKS_TO_TARGET_SOURCES}
-                               OPTIONS ${ADD_CHECKS_TO_TARGET_OPTIONS})
+                               SOURCES ${ADD_NORMAL_CHECK_SOURCES}
+                               OPTIONS ${ADD_NORMAL_CHECK_OPTIONS})
 
     add_custom_command (TARGET ${TARGET}
                         ${WHEN}
                         COMMAND
-                        ${CPPCHECK_COMMAND}
-                        ${EXTRA_ARGUMENTS_TO_ADD_CUSTOM_COMMAND})
+                        ${CPPCHECK_COMMAND})
 
-endfunction (_cppcheck_add_checks_to_target)
+endfunction (_cppcheck_add_normal_check_command)
+
+function (_determine_language_from_any_source_type SOURCE
+                                                   LANGUAGE_RETURN)
+
+    set (DETERMINE_LANG_MULTIVAR_ARGS INCLUDES CPP_IDENTIFIERS)
+    cmake_parse_arguments (DETERMINE_LANG
+                           ""
+                           ""
+                           "${DETERMINE_LANG_MULTIVAR_ARGS}"
+                           ${ARGN})
+
+    _get_language_from_source_name (${SOURCE} LANGUAGE NO_HEADERS)
+
+    if (DEFINED LANGUAGE)
+
+        # A language was set for this source - let cppcheck figure it out
+        list (APPEND KNOWN_LANGUAGE_SOURCES ${SOURCE})
+
+        # Also accumulate some headers from this source file
+        _scan_source_file_for_headers (SOURCE ${SOURCE}
+                                       INCLUDE_DIRECTORIES
+                                       ${DETERMINE_LANG_INCLUDES}
+                                       CPP_IDENTIFIERS
+                                       ${DETERMINE_LANG_CPP_IDENTIFIERS})
+
+        set (${LANGUAGE_RETURN} ${LANGUAGE} PARENT_SCOPE)
+        return ()
+
+    else (DEFINED LANGUAGE)
+
+        # This is a header file - we need to look up in the list
+        # of header files to determine what language this header
+        # file is. That will generally be "C" if it was
+        # included by any "C" source files and "CXX" if it was included
+        # by any other (CXX) sources.
+        #
+        # There is one exception - If a header is set to "C", we should
+        # open it and scan for #ifdef __cplusplus. That would indicate
+        # that it can be used in both modes and so it should be scanned
+        # in both modes.
+        #
+        # There is also one error case - If we are unable to determine
+        # the language of the header file initially, then it was never
+        # added to the list of known headers. We'll error out with a message
+        # suggesting that it must be included at least once somewhere, or
+        # a FORCE_LANGUAGE option should be passed
+        get_filename_component (ABSOLUTE_PATH ${SOURCE} ABSOLUTE)
+        _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
+                                                    HEADER_LANGUAGE)
+
+        # Error case
+        if (NOT DEFINED HEADER_LANGUAGE)
+        
+            message (SEND_ERROR "Couldn't find language for the header file"
+                                " ${ABSOLUTE_PATH}. Make sure to include "
+                                " this header file in at least one source "
+                                " file and add that source file to a "
+                                " target and scan it using "
+                                " cppcheck_target_sources or "
+                                " cppcheck_sources OR pass the "
+                                " FORCE_LANGUAGE option to either of those "
+                                " two functions where the header will be "
+                                " included.")
+            return ()
+
+        endif (NOT DEFINED HEADER_LANGUAGE)
+
+        # C case - open the file and check for #ifdef __cplusplus - if we
+        # do have that, then add it to our CXX sources as well
+        get_property (HEADER_IS_GENERATED SOURCE ${SOURCE} PROPERTY GENERATED)
+        if (HEADER_LANGUAGE STREQUAL "C")
+
+            if (NOT HEADER_IS_GENERATED)
+
+                file (READ ${SOURCE} SOURCE_CONTENTS)
+
+                # Split the read contents into lines, using ; as the delimiter
+                string (REGEX REPLACE ";" "\\\\;"
+                        SOURCE_CONTENTS "${SOURCE_CONTENTS}")
+                string (REGEX REPLACE "\n" ";"
+                        SOURCE_CONTENTS "${SOURCE_CONTENTS}")
+
+                foreach (LINE ${SOURCE_CONTENTS})
+
+                    list (APPEND DETERMINE_LANG_CPP_IDENTIFIERS
+                          __cplusplus)
+
+                    foreach (IDENTIFIER ${DETERMINE_LANG_CPP_IDENTIFIERS})
+
+                        if (LINE MATCHES "^.*${IDENTIFIER}")
+
+                            set (${LANGUAGE_RETURN} "C;CXX" PARENT_SCOPE)
+                            return ()
+
+                        endif (LINE MATCHES "^.*${IDENTIFIER}")
+
+                    endforeach ()
+
+                endforeach ()
+
+            endif (NOT HEADER_IS_GENERATED)
+
+            set (${LANGUAGE_RETURN} "C" PARENT_SCOPE)
+            return ()
+
+        elseif (HEADER_LANGUAGE STREQUAL "CXX")
+
+            set (${LANGUAGE_RETURN} "CXX" PARENT_SCOPE)
+            return ()
+
+        endif (HEADER_LANGUAGE STREQUAL "C")
+
+    endif (DEFINED LANGUAGE)
+
+    message (FATAL_ERROR "This section should not be reached")
+
+endfunction ()
+
+function (_cppcheck_add_checks_to_target TARGET
+                                         WHEN)
+
+    set (ADD_CHECKS_OPTIONS CHECK_GENERATED)
+    set (ADD_CHECKS_SINGLEVAR_OPTIONS FORCE_LANGUAGE)
+    set (ADD_CHECKS_MULTIVAR_OPTIONS SOURCES OPTIONS INCLUDES CPP_IDENTIFIERS)
+
+    cmake_parse_arguments (ADD_CHECKS_TO_TARGET
+                           "${ADD_CHECKS_OPTIONS}"
+                           "${ADD_CHECKS_SINGLEVAR_OPTIONS}"
+                           "${ADD_CHECKS_MULTIVAR_OPTIONS}"
+                           ${ARGN})
+
+    set (DETECT_LANGUAGE_SOURCES)
+    set (C_HEADERS)
+    set (CXX_HEADERS)
+
+    foreach (SOURCE ${ADD_CHECKS_TO_TARGET_SOURCES})
+
+        set (LANGUAGE ${ADD_CHECKS_TO_TARGET_FORCE_LANGUAGE})
+
+        if (NOT LANGUAGE)
+
+            set (INCLUDES ${ADD_CHECKS_TO_TARGET_INCLUDES})
+            set (CPP_IDENTIFIERS ${ADD_CHECKS_TO_TARGET_CPP_IDENTIFIERS})
+            _determine_language_from_any_source_type (${SOURCE} LANGUAGE
+                                                      INCLUDES ${INCLUDES}
+                                                      CPP_IDENTIFIERS
+                                                      ${CPP_IDENTIFIERS})
+
+        endif (NOT LANGUAGE)
+
+        list (FIND LANGUAGE "C" C_INDEX)
+        list (FIND LANGUAGE "CXX" CXX_INDEX)
+
+        if (NOT C_INDEX EQUAL -1)
+
+            list (APPEND C_HEADERS ${SOURCE})
+
+        endif (NOT C_INDEX EQUAL -1)
+
+        if (NOT CXX_INDEX EQUAL -1)
+
+            list (APPEND CXX_HEADERS ${SOURCE})
+
+        endif (NOT CXX_INDEX EQUAL -1)
+
+    endforeach ()
+
+    # For known languages, no special options
+    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
+                                        SOURCES ${KNOWN_LANGUAGE_SOURCES}
+                                        OPTIONS ${ADD_CHECKS_TO_TARGET_OPTIONS})
+
+    set (C_LANGUAGE_OPTION)
+    set (CXX_LANGUAGE_OPTION)
+
+    if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+
+        set (C_LANGUAGE_OPTION --language=c)
+        set (CXX_LANGUAGE_OPTION --language=c++)
+
+    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+
+    # For C headers, pass --language=c
+    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
+                                        SOURCES ${C_HEADERS}
+                                        OPTIONS
+                                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
+                                        ${C_LANGUAGE_OPTION})
+
+    # For CXX headers, pass --language=c++ and -D__cplusplus
+    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
+                                        SOURCES ${CXX_HEADERS}
+                                        OPTIONS
+                                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
+                                        ${CXX_LANGUAGE_OPTION}
+                                        -D__cplusplus)
+
+endfunction ()
 
 function (_append_to_global_property_unique PROPERTY ITEM)
 
@@ -322,6 +783,12 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
          ${CPPCHECK_COMMON_OPTIONS}
          --enable=unusedFunction)
 
+    if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+
+        list (APPEND OPTIONS --language=c++)
+
+    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+
     if (NOT ADD_GLOBAL_UNUSED_FUNCTION_CHECK_WARN_ONLY)
 
         list (APPEND OPTIONS --error-exitcode=1)
@@ -379,7 +846,12 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 # [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
 #            the unused function check. This option works independently of
 #            the CHECK_GENERATED option.
+# [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
+#                             e.g. C, CXX
 # [Optional] INCLUDES : Include directories to search.
+# [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
+#                              any header file specified in the source
+#                              list is definitely a C++ header file
 function (cppcheck_sources TARGET)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
@@ -396,7 +868,8 @@ function (cppcheck_sources TARGET)
          NO_CHECK_UNUSED
          CHECK_GENERATED
          CHECK_GENERATED_FOR_UNUSED)
-    set (MULTIVALUE_OPTIONS INCLUDES SOURCES)
+    set (SINGLEVALUE_OPTIONS FORCE_LANGUAGE)
+    set (MULTIVALUE_OPTIONS INCLUDES SOURCES CPP_IDENTIFIERS)
     cmake_parse_arguments (CPPCHECK
                            "${OPTIONAL_OPTIONS}"
                            "${SINGLEVALUE_OPTIONS}"
@@ -485,6 +958,9 @@ function (cppcheck_sources TARGET)
                                     ${WHEN}
                                     SOURCES ${FILTERED_CHECK_SOURCES}
                                     OPTIONS ${CPPCHECK_OPTIONS}
+                                    INCLUDES ${CPPCHECK_INCLUDES}
+                                    CPP_IDENTIFIERS ${CPPCHECK_CPP_IDENTIFIERS}
+                                    FORCE_LANGUAGE ${CPPCHECK_FORCE_LANGUAGE}
                                     ${EXTRA_ARGS})
 
 endfunction (cppcheck_sources)
@@ -525,7 +1001,12 @@ endfunction ()
 # [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
 #            the unused function check. This option works independently of
 #            the CHECK_GENERATED option.
+# [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
+#                             e.g. C, CXX
 # [Optional] INCLUDES : Check header files in specified include directories.
+# [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
+#                              any header file specified in the target's
+#                              sources is definitely a C++ header file
 function (cppcheck_target_sources TARGET)
 
     _get_target_c_or_cxx_sources (_files_to_check ${TARGET})
