@@ -16,6 +16,12 @@ set (CPPCHECK_COMMON_OPTIONS
 
 function (_validate_cppcheck CONTINUE)
 
+    if (DEFINED CPPCHECK_VERSION)
+
+        set (${CONTINUE} TRUE PARENT_SCOPE)
+
+    endif (DEFINED CPPCHECK_VERSION)
+
     if (NOT CPPCHECK_EXECUTABLE)
 
         message (SEND_ERROR "cppcheck binary was not found, make sure "
