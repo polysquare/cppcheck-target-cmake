@@ -965,26 +965,21 @@ function (cppcheck_sources TARGET)
 
 endfunction (cppcheck_sources)
 
-function (_get_target_c_or_cxx_sources RETURN_SOURCES TARGET)
+function (_strip_add_custom_target_sources RETURN_SOURCES TARGET)
 
     get_target_property (_sources ${TARGET} SOURCES)
-    set (_files_to_check)
-    foreach (_file ${_sources})
+    list (GET _sources 0 _first_source)
+    string (FIND "${_first_source}" "/" LAST_SLASH REVERSE)
+    math (EXPR LAST_SLASH "${LAST_SLASH} + 1")
+    string (SUBSTRING "${_first_source}" ${LAST_SLASH} -1 END_OF_SOURCE)
 
-        get_source_file_property (_lang ${_file} LANGUAGE)
-        get_source_file_property (_location ${_file} LOCATION)
+    if (END_OF_SOURCE STREQUAL "${TARGET}")
 
-        if ("${_lang}" MATCHES "CXX" OR
-            "${_lang}" MATCHES "C")
+        list (REMOVE_AT _sources 0)
 
-            list (APPEND _files_to_check ${_location})
+    endif (END_OF_SOURCE STREQUAL "${TARGET}")
 
-        endif ("${_lang}" MATCHES "CXX" OR
-               "${_lang}" MATCHES "C")
-
-    endforeach ()
-
-    set (${RETURN_SOURCES} ${_files_to_check} PARENT_SCOPE)
+    set (${RETURN_SOURCES} ${_sources} PARENT_SCOPE)
 
 endfunction ()
 
@@ -1009,7 +1004,7 @@ endfunction ()
 #                              sources is definitely a C++ header file
 function (cppcheck_target_sources TARGET)
 
-    _get_target_c_or_cxx_sources (_files_to_check ${TARGET})
+    _strip_add_custom_target_sources (_files_to_check ${TARGET})
 
     set (EXTRA_OPTIONS)
     set (MULTIVALUE_OPTIONS INCLUDES)
@@ -1042,7 +1037,7 @@ endfunction (cppcheck_target_sources)
 function (cppcheck_add_target_sources_to_unused_function_check TARGET
                                                                WHICH)
 
-    _get_target_c_or_cxx_sources (_files_to_check ${TARGET})
+    _strip_add_custom_target_sources (_files_to_check ${TARGET})
 
     cppcheck_add_to_unused_function_check (${WHICH}
                                            TARGETS ${TARGET}
