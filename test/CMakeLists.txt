@@ -32,6 +32,18 @@ set (CMAKE_MODULE_PATH
      ${CMAKE_UNIT_DIRECTORY}
      ${CMAKE_MODULE_PATH})
 
+# Include CPPCheck.cmake too so that we can figure out which tests we can run
+find_program (CPPCHECK_EXECUTABLE cppcheck)
+include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
+
+_validate_cppcheck (CONTINUE)
+
+if (NOT CONTINUE)
+
+    message (FATAL_ERROR "CPPCheck not found, cannot continue")
+
+endif (NOT CONTINUE)
+
 include (CMakeUnitRunner)
 
 bootstrap_cmake_unit (INITIAL_CACHE_CONTENTS
@@ -61,8 +73,6 @@ add_cmake_build_test (CheckTargetSourcesWarnOnly
                       CheckTargetSourcesWarnOnlyVerify)
 add_cmake_build_test (CheckTargetSourcesNoCheckStyle
                       CheckTargetSourcesNoCheckStyleVerify)
-add_cmake_build_test (CheckTargetSourcesCheckUnused
-                      CheckTargetSourcesCheckUnusedVerify)
 add_cmake_build_test (CheckTargetSourcesIncludes
                       CheckTargetSourcesIncludesVerify)
 add_cmake_build_test (CheckTargetSourcesGenerated
@@ -75,6 +85,34 @@ add_cmake_build_test (MultipleUnusedFunctionChecksCoexist
                       MultipleUnusedFunctionChecksCoexistVerify)
 add_cmake_build_test (UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExists
                       UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExistsVerify)
+
+# We can't verify these without being able to specify a language to cppcheck
+if (CPPCHECK_VERSION VERSION_GREATER 1.57)
+
+    add_cmake_build_test (CheckTransientIncludesForLanguage
+                          CheckTransientIncludesForLanguageVerify)
+    add_cmake_build_test (CheckForCAndCPPWhereHeaderHasIfdefCPlusPlus
+                          CheckForCAndCPPWhereHeaderHasIfdefCPlusPlusVerify)
+    add_cmake_build_test (ScanForBothWithCustomCPPIdentifier
+                          ScanForBothWithCustomCPPIdentifierVerify)
+    add_cmake_build_test (BreakIncludeCyclesWhenScanningForHeaders
+                          BreakIncludeCyclesWhenScanningForHeadersVerify)
+    add_cmake_build_test (DetectLanguageOfGeneratedHeader
+                          DetectLanguageOfGeneratedHeaderVerify)
+    add_cmake_build_test (DetectCLanguageForHeaders
+                          DetectCLanguageForHeadersVerify)
+    add_cmake_build_test (DetectCLanguageForHeadersWhenIncludeInQuotes
+                          DetectCLanguageForHeadersWhenIncludeInQuotesVerify)
+    add_cmake_build_test (DetectCPPLanguageForHeaders
+                          DetectCPPLanguageForHeadersVerify)
+    add_cmake_build_test (DefaultToCLanguageForHeaders
+                          DefaultToCLanguageForHeadersVerify)
+    add_cmake_build_test (ForceLanguageOverridesDetectedHeaderLanguage
+                          ForceLanguageOverridesDetectedHeaderLanguageVerify)
+    add_cmake_build_test (UnusedFunctionCheckIsAlwaysCPP
+                          UnusedFunctionCheckIsAlwaysCPPVerify)
+
+endif (CPPCHECK_VERSION VERSION_GREATER 1.57)
 
 # The ninja generator does dependency scanning at the start of the build
 # so we can't fool it into skipping this dependency by generating the

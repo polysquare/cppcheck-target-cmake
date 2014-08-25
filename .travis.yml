@@ -2,12 +2,18 @@ language: cpp
 env:
   - CMAKE_GENERATOR="Unix Makefiles"
   - CMAKE_GENERATOR="Ninja"
+  - USE_OLD_CPPCHECK=1 CMAKE_GENERATOR="Unix Makefiles"
 before_install:
   - git submodule update --init --recursive
   - sudo apt-add-repository -y ppa:kalakris/cmake
   - sudo apt-add-repository -y ppa:saiarcot895/chromium-dev
   - sudo apt-get update -qq
   - sudo apt-get install -qq `cat DEPENDENCIES`
+  - if [[ $USE_OLD_CPPCHECK != 1 ]] ; then
+      wget http://archive.ubuntu.com/ubuntu/pool/universe/t/tinyxml2/libtinyxml2-0.0.0_0~git20120518.1.a2ae54e-1_amd64.deb;
+      wget http://archive.ubuntu.com/ubuntu/pool/universe/c/cppcheck/cppcheck_1.60.1-1_amd64.deb;
+      sudo dpkg -i libtinyxml2-0.0.0_0~git20120518.1.a2ae54e-1_amd64.deb cppcheck_1.60.1-1_amd64.deb;
+    fi;
   # Workaround to get Ninja to display verbose output
   - if [[ $CMAKE_GENERATOR == "Ninja" ]] ; then
      echo -e '!#/bin/bash\n/usr/bin/ninja -v $@' > ninja;
@@ -15,6 +21,7 @@ before_install:
      export PATH=`pwd`:${PATH};
     fi
 script:
+  - cppcheck --version
   - mkdir -p test/build
   - pushd test/build
   - cmake .. -G "${CMAKE_GENERATOR}" &&
