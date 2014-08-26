@@ -207,7 +207,7 @@ endfunction ()
 function (_scan_source_file_for_headers)
 
     set (SCAN_SINGLEVAR_ARGUMENTS SOURCE)
-    set (SCAN_MULTIVAR_ARGUMENTS INCLUDE_DIRECTORIES ALREADY_SCANNED CPP_IDENTIFIERS)
+    set (SCAN_MULTIVAR_ARGUMENTS INCLUDES CPP_IDENTIFIERS)
 
     cmake_parse_arguments (SCAN
                            ""
@@ -244,13 +244,18 @@ function (_scan_source_file_for_headers)
     endif (NOT EXISTS ${SCAN_SOURCE})
 
     # We've already scanned this source file in this pass, bail out
-    list (FIND SCAN_ALREADY_SCANNED ${SCAN_SOURCE} SOURCE_INDEX)
+    get_property (ALREADY_SCANNED GLOBAL
+                  PROPERTY _CPPCHECK_ALREADY_SCANNED_SOURCES)
+    list (FIND ALREADY_SCANNED ${SCAN_SOURCE} SOURCE_INDEX)
 
     if (NOT SOURCE_INDEX EQUAL -1)
 
         return ()
 
     endif (NOT SOURCE_INDEX EQUAL -1)
+
+    set_property (GLOBAL APPEND PROPERTY _CPPCHECK_ALREADY_SCANNED_SOURCES
+                  ${SCAN_SOURCE})
 
     # Open the source file and read its contents
     file (READ ${SCAN_SOURCE} SOURCE_CONTENTS)
@@ -427,16 +432,31 @@ function (_determine_language_from_any_source_type SOURCE
         # Error case
         if (NOT DEFINED HEADER_LANGUAGE)
         
-            message (SEND_ERROR "Couldn't find language for the header file"
-                                " ${ABSOLUTE_PATH}. Make sure to include "
-                                " this header file in at least one source "
-                                " file and add that source file to a "
-                                " target and scan it using "
-                                " cppcheck_target_sources or "
-                                " cppcheck_sources OR pass the "
-                                " FORCE_LANGUAGE option to either of those "
-                                " two functions where the header will be "
-                                " included.")
+            set (ERROR_MESSAGE "Couldn't find language for the header file"
+                               " ${ABSOLUTE_PATH}. Make sure to include "
+                               " this header file in at least one source "
+                               " file and add that source file to a "
+                               " target and scan it using "
+                               " cppcheck_target_sources or "
+                               " cppcheck_sources OR pass the "
+                               " FORCE_LANGUAGE option to either of those "
+                               " two functions where the header will be "
+                               " included.")
+
+            set (ERROR_MESSAGE "${ERROR_MESSAGE}\n The following sources have "
+                 "been scanned for includes:\n")
+
+            get_property (ALREADY_SCANNED GLOBAL PROPERTY
+                          _CPPCHECK_ALREADY_SCANNED_SOURCES)
+
+            foreach (SOURCE ${ALREADY_SCANNED})
+
+                set (ERROR_MESSAGE "${ERROR_MESSAGE} - ${SOURCE}\n")
+
+            endforeach ()
+
+            message (SEND_ERROR ${ERROR_MESSAGE})
+
             return ()
 
         endif (NOT DEFINED HEADER_LANGUAGE)
