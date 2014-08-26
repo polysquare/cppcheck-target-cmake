@@ -290,7 +290,18 @@ function (_scan_source_file_for_headers)
 
             string (STRIP ${HEADER} HEADER)
 
-            foreach (INCLUDE_DIRECTORY ${SCAN_INCLUDE_DIRECTORIES})
+            # Check if this include statement has quotes. If it does, then
+            # we should include the current source directory in the include
+            # directory scan.
+            string (FIND "${LINE}" "\"" QUOTE_INDEX)
+
+            if (NOT QUOTE_INDEX EQUAL -1)
+
+                list (APPEND SCAN_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR})
+
+            endif (NOT QUOTE_INDEX EQUAL -1)
+
+            foreach (INCLUDE_DIRECTORY ${SCAN_INCLUDES})
 
                 set (RELATIVE_PATH "${INCLUDE_DIRECTORY}/${HEADER}")
                 get_filename_component (ABSOLUTE_PATH ${RELATIVE_PATH} ABSOLUTE)
