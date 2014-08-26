@@ -19,6 +19,7 @@ function (_validate_cppcheck CONTINUE)
     if (DEFINED CPPCHECK_VERSION)
 
         set (${CONTINUE} TRUE PARENT_SCOPE)
+        return ()
 
     endif (DEFINED CPPCHECK_VERSION)
 
