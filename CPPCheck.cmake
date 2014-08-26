@@ -19,6 +19,7 @@ function (_validate_cppcheck CONTINUE)
     if (DEFINED CPPCHECK_VERSION)
 
         set (${CONTINUE} TRUE PARENT_SCOPE)
+        return ()
 
     endif (DEFINED CPPCHECK_VERSION)
 
@@ -206,7 +207,7 @@ endfunction ()
 function (_scan_source_file_for_headers)
 
     set (SCAN_SINGLEVAR_ARGUMENTS SOURCE)
-    set (SCAN_MULTIVAR_ARGUMENTS INCLUDE_DIRECTORIES ALREADY_SCANNED CPP_IDENTIFIERS)
+    set (SCAN_MULTIVAR_ARGUMENTS INCLUDES CPP_IDENTIFIERS)
 
     cmake_parse_arguments (SCAN
                            ""
@@ -243,13 +244,18 @@ function (_scan_source_file_for_headers)
     endif (NOT EXISTS ${SCAN_SOURCE})
 
     # We've already scanned this source file in this pass, bail out
-    list (FIND SCAN_ALREADY_SCANNED ${SCAN_SOURCE} SOURCE_INDEX)
+    get_property (ALREADY_SCANNED GLOBAL
+                  PROPERTY _CPPCHECK_ALREADY_SCANNED_SOURCES)
+    list (FIND ALREADY_SCANNED ${SCAN_SOURCE} SOURCE_INDEX)
 
     if (NOT SOURCE_INDEX EQUAL -1)
 
         return ()
 
     endif (NOT SOURCE_INDEX EQUAL -1)
+
+    set_property (GLOBAL APPEND PROPERTY _CPPCHECK_ALREADY_SCANNED_SOURCES
+                  ${SCAN_SOURCE})
 
     # Open the source file and read its contents
     file (READ ${SCAN_SOURCE} SOURCE_CONTENTS)
@@ -284,7 +290,18 @@ function (_scan_source_file_for_headers)
 
             string (STRIP ${HEADER} HEADER)
 
-            foreach (INCLUDE_DIRECTORY ${SCAN_INCLUDE_DIRECTORIES})
+            # Check if this include statement has quotes. If it does, then
+            # we should include the current source directory in the include
+            # directory scan.
+            string (FIND "${LINE}" "\"" QUOTE_INDEX)
+
+            if (NOT QUOTE_INDEX EQUAL -1)
+
+                list (APPEND SCAN_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR})
+
+            endif (NOT QUOTE_INDEX EQUAL -1)
+
+            foreach (INCLUDE_DIRECTORY ${SCAN_INCLUDES})
 
                 set (RELATIVE_PATH "${INCLUDE_DIRECTORY}/${HEADER}")
                 get_filename_component (ABSOLUTE_PATH ${RELATIVE_PATH} ABSOLUTE)
@@ -293,49 +310,46 @@ function (_scan_source_file_for_headers)
                 get_property (HEADER_IS_GENERATED SOURCE ${ABSOLUTE_PATH}
                               PROPERTY GENERATED)
 
-                if (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+                if (EXISTS ${ABSOLUTE_PATH} OR HEADER_IS_GENERATED)
 
-                    break ()
+                    # First see if a language has already been set for this header
+                    # file. If so, and it is "C", then we can't change it any
+                    # further at this point.
+                    set (HEADER_LANGUAGE "")
+                    _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
+                                                                HEADER_LANGUAGE)
 
-                endif (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+                    set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH}")
+                    set (UPDATE_HEADER_IN_MAP FALSE)
 
-                # First see if a language has already been set for this header
-                # file. If so, and it is "C", then we can't change it any
-                # further at this point.
-                set (HEADER_LANGUAGE "")
-                _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
-                                                            HEADER_LANGUAGE)
+                    if (DEFINED HEADER_LANGUAGE AND
+                        NOT HEADER_LANGUAGE STREQUAL "C")
 
-                set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH}")
-                set (UPDATE_HEADER_IN_MAP FALSE)
+                        set (UPDATE_HEADER_IN_MAP TRUE)
 
-                if (DEFINED HEADER_LANGUAGE AND
-                    NOT HEADER_LANGUAGE STREQUAL "C")
+                    elseif (NOT DEFINED HEADER_LANGUAGE)
 
-                    set (UPDATE_HEADER_IN_MAP TRUE)
+                        set (UPDATE_HEADER_IN_MAP TRUE)
 
-                elseif (NOT DEFINED HEADER_LANGUAGE)
+                    endif (DEFINED HEADER_LANGUAGE AND
+                           NOT HEADER_LANGUAGE STREQUAL "C")
 
-                    set (UPDATE_HEADER_IN_MAP TRUE)
+                    if (UPDATE_HEADER_IN_MAP)
 
-                endif (DEFINED HEADER_LANGUAGE AND
-                       NOT HEADER_LANGUAGE STREQUAL "C")
+                        set_property (GLOBAL PROPERTY "${MAP_KEY}"
+                                                      "${LANGUAGE}")
 
-                if (UPDATE_HEADER_IN_MAP)
+                        # Recursively scan for header more header files
+                        # in this one
+                        _scan_source_file_for_headers (SOURCE ${ABSOLUTE_PATH}
+                                                       INCLUDES
+                                                       ${SCAN_INCLUDES}
+                                                       CPP_IDENTIFIERS
+                                                        ${SCAN_CPP_IDENTIFIERS})
 
-                    set_property (GLOBAL PROPERTY "${MAP_KEY}" "${LANGUAGE}")
+                    endif (UPDATE_HEADER_IN_MAP)
 
-                    # Recursively scan for header more header files in this one
-                    _scan_source_file_for_headers (SOURCE ${ABSOLUTE_PATH}
-                                                   INCLUDE_DIRECTORIES
-                                                   ${SCAN_INCLUDE_DIRECTORIES}
-                                                   ALREADY_SCANNED
-                                                   ${SCAN_ALREADY_SCANNED}
-                                                   ${SCAN_SOURCE}
-                                                   CPP_IDENTIFIERS
-                                                    ${SCAN_CPP_IDENTIFIERS})
-
-                endif (UPDATE_HEADER_IN_MAP)
+                endif (EXISTS ${ABSOLUTE_PATH} OR HEADER_IS_GENERATED)
 
             endforeach ()
 
@@ -393,7 +407,7 @@ function (_determine_language_from_any_source_type SOURCE
 
         # Also accumulate some headers from this source file
         _scan_source_file_for_headers (SOURCE ${SOURCE}
-                                       INCLUDE_DIRECTORIES
+                                       INCLUDES
                                        ${DETERMINE_LANG_INCLUDES}
                                        CPP_IDENTIFIERS
                                        ${DETERMINE_LANG_CPP_IDENTIFIERS})
@@ -426,16 +440,31 @@ function (_determine_language_from_any_source_type SOURCE
         # Error case
         if (NOT DEFINED HEADER_LANGUAGE)
         
-            message (SEND_ERROR "Couldn't find language for the header file"
-                                " ${ABSOLUTE_PATH}. Make sure to include "
-                                " this header file in at least one source "
-                                " file and add that source file to a "
-                                " target and scan it using "
-                                " cppcheck_target_sources or "
-                                " cppcheck_sources OR pass the "
-                                " FORCE_LANGUAGE option to either of those "
-                                " two functions where the header will be "
-                                " included.")
+            set (ERROR_MESSAGE "Couldn't find language for the header file"
+                               " ${ABSOLUTE_PATH}. Make sure to include "
+                               " this header file in at least one source "
+                               " file and add that source file to a "
+                               " target and scan it using "
+                               " cppcheck_target_sources or "
+                               " cppcheck_sources OR pass the "
+                               " FORCE_LANGUAGE option to either of those "
+                               " two functions where the header will be "
+                               " included.")
+
+            set (ERROR_MESSAGE "${ERROR_MESSAGE}\n The following sources have "
+                 "been scanned for includes:\n")
+
+            get_property (ALREADY_SCANNED GLOBAL PROPERTY
+                          _CPPCHECK_ALREADY_SCANNED_SOURCES)
+
+            foreach (SOURCE ${ALREADY_SCANNED})
+
+                set (ERROR_MESSAGE "${ERROR_MESSAGE} - ${SOURCE}\n")
+
+            endforeach ()
+
+            message (SEND_ERROR ${ERROR_MESSAGE})
+
             return ()
 
         endif (NOT DEFINED HEADER_LANGUAGE)
