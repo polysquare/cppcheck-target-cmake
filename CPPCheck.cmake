@@ -299,49 +299,46 @@ function (_scan_source_file_for_headers)
                 get_property (HEADER_IS_GENERATED SOURCE ${ABSOLUTE_PATH}
                               PROPERTY GENERATED)
 
-                if (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+                if (EXISTS ${ABSOLUTE_PATH} OR HEADER_IS_GENERATED)
 
-                    break ()
+                    # First see if a language has already been set for this header
+                    # file. If so, and it is "C", then we can't change it any
+                    # further at this point.
+                    set (HEADER_LANGUAGE "")
+                    _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
+                                                                HEADER_LANGUAGE)
 
-                endif (NOT EXISTS ${ABSOLUTE_PATH} AND NOT HEADER_IS_GENERATED)
+                    set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH}")
+                    set (UPDATE_HEADER_IN_MAP FALSE)
 
-                # First see if a language has already been set for this header
-                # file. If so, and it is "C", then we can't change it any
-                # further at this point.
-                set (HEADER_LANGUAGE "")
-                _get_absolute_path_to_header_file_language (${ABSOLUTE_PATH}
-                                                            HEADER_LANGUAGE)
+                    if (DEFINED HEADER_LANGUAGE AND
+                        NOT HEADER_LANGUAGE STREQUAL "C")
 
-                set (MAP_KEY "_CPPCHECK_H_MAP_${ABSOLUTE_PATH}")
-                set (UPDATE_HEADER_IN_MAP FALSE)
+                        set (UPDATE_HEADER_IN_MAP TRUE)
 
-                if (DEFINED HEADER_LANGUAGE AND
-                    NOT HEADER_LANGUAGE STREQUAL "C")
+                    elseif (NOT DEFINED HEADER_LANGUAGE)
 
-                    set (UPDATE_HEADER_IN_MAP TRUE)
+                        set (UPDATE_HEADER_IN_MAP TRUE)
 
-                elseif (NOT DEFINED HEADER_LANGUAGE)
+                    endif (DEFINED HEADER_LANGUAGE AND
+                           NOT HEADER_LANGUAGE STREQUAL "C")
 
-                    set (UPDATE_HEADER_IN_MAP TRUE)
+                    if (UPDATE_HEADER_IN_MAP)
 
-                endif (DEFINED HEADER_LANGUAGE AND
-                       NOT HEADER_LANGUAGE STREQUAL "C")
+                        set_property (GLOBAL PROPERTY "${MAP_KEY}"
+                                                      "${LANGUAGE}")
 
-                if (UPDATE_HEADER_IN_MAP)
+                        # Recursively scan for header more header files
+                        # in this one
+                        _scan_source_file_for_headers (SOURCE ${ABSOLUTE_PATH}
+                                                       INCLUDES
+                                                       ${SCAN_INCLUDES}
+                                                       CPP_IDENTIFIERS
+                                                        ${SCAN_CPP_IDENTIFIERS})
 
-                    set_property (GLOBAL PROPERTY "${MAP_KEY}" "${LANGUAGE}")
+                    endif (UPDATE_HEADER_IN_MAP)
 
-                    # Recursively scan for header more header files in this one
-                    _scan_source_file_for_headers (SOURCE ${ABSOLUTE_PATH}
-                                                   INCLUDE_DIRECTORIES
-                                                   ${SCAN_INCLUDE_DIRECTORIES}
-                                                   ALREADY_SCANNED
-                                                   ${SCAN_ALREADY_SCANNED}
-                                                   ${SCAN_SOURCE}
-                                                   CPP_IDENTIFIERS
-                                                    ${SCAN_CPP_IDENTIFIERS})
-
-                endif (UPDATE_HEADER_IN_MAP)
+                endif (EXISTS ${ABSOLUTE_PATH} OR HEADER_IS_GENERATED)
 
             endforeach ()
 
@@ -399,7 +396,7 @@ function (_determine_language_from_any_source_type SOURCE
 
         # Also accumulate some headers from this source file
         _scan_source_file_for_headers (SOURCE ${SOURCE}
-                                       INCLUDE_DIRECTORIES
+                                       INCLUDES
                                        ${DETERMINE_LANG_INCLUDES}
                                        CPP_IDENTIFIERS
                                        ${DETERMINE_LANG_CPP_IDENTIFIERS})
