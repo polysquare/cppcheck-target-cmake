@@ -30,11 +30,12 @@ set (CPPCHECK_INITIAL_CACHE_CONTENTS
 
 set (CMAKE_MODULE_PATH
      ${CMAKE_UNIT_DIRECTORY}
+     ${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}
      ${CMAKE_MODULE_PATH})
 
 # Include CPPCheck.cmake too so that we can figure out which tests we can run
 find_program (CPPCHECK_EXECUTABLE cppcheck)
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
+include (CPPCheck)
 
 _validate_cppcheck (CONTINUE)
 
