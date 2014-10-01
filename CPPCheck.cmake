@@ -493,28 +493,20 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
     list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES
           ${_cppcheck_unused_function_includes})
 
-    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
+    foreach (_include ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES})
 
-        foreach (_include ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES})
+        list (APPEND OPTIONS -I${_include})
 
-            list (APPEND OPTIONS -I${_include})
-
-        endforeach (_include)
-
-    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
+    endforeach (_include)
 
     list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES
           ${_cppcheck_unused_function_definitions})
 
-    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
+    foreach (_definition ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES})
 
-        foreach (_definition ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES})
+        list (APPEND OPTIONS -D${_definition})
 
-            list (APPEND OPTIONS -D${_definition})
-
-        endforeach ()
-
-    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
+    endforeach ()
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
                                SOURCES ${_cppcheck_unused_function_sources}
@@ -657,25 +649,17 @@ function (cppcheck_sources TARGET)
 
     endif (CPPCHECK_CHECK_UNUSED)
 
-    if (CPPCHECK_INCLUDES)
+    foreach (_include ${CPPCHECK_INCLUDES})
 
-        foreach (_include ${CPPCHECK_INCLUDES})
+        list (APPEND CPPCHECK_OPTIONS -I${_include})
 
-            list (APPEND CPPCHECK_OPTIONS -I${_include})
+    endforeach (_include)
 
-        endforeach (_include)
+    foreach (_definition ${CPPCHECK_DEFINES})
 
-    endif (CPPCHECK_INCLUDES)
+        list (APPEND CPPCHECK_OPTIONS -D${_definition})
 
-    if (CPPCHECK_DEFINES)
-
-        foreach (_definition ${CPPCHECK_DEFINES})
-
-            list (APPEND CPPCHECK_OPTIONS -D${_definition})
-
-        endforeach ()
-
-    endif (CPPCHECK_DEFINES)
+    endforeach ()
 
     set (EXTRA_ARGS)
 
