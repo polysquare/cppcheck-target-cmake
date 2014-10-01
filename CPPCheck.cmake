@@ -8,6 +8,7 @@
 
 include (CMakeParseArguments)
 include (${CMAKE_CURRENT_LIST_DIR}/determine-header-language/DetermineHeaderLanguage.cmake)
+include (${CMAKE_CURRENT_LIST_DIR}/util/CppCheckUtil.cmake)
 
 set (CPPCHECK_COMMON_OPTIONS
      --quiet
@@ -68,37 +69,6 @@ function (_validate_cppcheck CONTINUE)
 
 endfunction (_validate_cppcheck)
 
-function (_filter_out_generated_sources RESULT_VARIABLE)
-
-    set (FILTER_OUT_MUTLIVAR_OPTIONS SOURCES)
-
-    cmake_parse_arguments (FILTER_OUT
-                           ""
-                           ""
-                           "${FILTER_OUT_MUTLIVAR_OPTIONS}"
-                           ${ARGN})
-
-    set (${RESULT_VARIABLE} PARENT_SCOPE)
-    set (FILTERED_SOURCES)
-
-    foreach (SOURCE ${FILTER_OUT_SOURCES})
-
-        get_property (SOURCE_IS_GENERATED
-                      SOURCE ${SOURCE}
-                      PROPERTY GENERATED)
-
-        if (NOT SOURCE_IS_GENERATED)
-
-            list (APPEND FILTERED_SOURCES ${SOURCE})
-
-        endif (NOT SOURCE_IS_GENERATED)
-
-    endforeach ()
-
-    set (${RESULT_VARIABLE} ${FILTERED_SOURCES} PARENT_SCOPE)
-
-endfunction (_filter_out_generated_sources)
-
 function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
     set (COMMANDLINE_MULTIVAR_OPTIONS SOURCES OPTIONS)
@@ -158,65 +128,18 @@ function (_cppcheck_add_checks_to_target TARGET
          DEFINES
          CPP_IDENTIFIERS)
 
-    cmake_parse_arguments (ADD_CHECKS_TO_TARGET
+    cmake_parse_arguments (ADD_CHECKS
                            "${ADD_CHECKS_OPTIONS}"
                            "${ADD_CHECKS_SINGLEVAR_OPTIONS}"
                            "${ADD_CHECKS_MULTIVAR_OPTIONS}"
                            ${ARGN})
 
-    set (DETECT_LANGUAGE_SOURCES)
-    set (C_HEADERS)
-    set (CXX_HEADERS)
-
-    foreach (SOURCE ${ADD_CHECKS_TO_TARGET_SOURCES})
-
-        set (LANGUAGE ${ADD_CHECKS_TO_TARGET_FORCE_LANGUAGE})
-
-        if (NOT LANGUAGE)
-
-            set (INCLUDES ${ADD_CHECKS_TO_TARGET_INCLUDES})
-            set (CPP_IDENTIFIERS ${ADD_CHECKS_TO_TARGET_CPP_IDENTIFIERS})
-            polysquare_determine_language_for_source (${SOURCE}
-                                                      LANGUAGE
-                                                      SOURCE_WAS_HEADER
-                                                      INCLUDES ${INCLUDES})
-
-            # Scan this source for headers, we'll need them later
-            if (NOT SOURCE_WAS_HEADER)
-
-                polysquare_scan_source_for_headers (SOURCE ${SOURCE}
-                                                    INCLUDES ${INCLUDES}
-                                                    CPP_IDENTIFIERS
-                                                    ${CPP_IDENTIFIERS})
-
-            endif (NOT SOURCE_WAS_HEADER)
-
-        endif (NOT LANGUAGE)
-
-        list (FIND LANGUAGE "C" C_INDEX)
-        list (FIND LANGUAGE "CXX" CXX_INDEX)
-
-        if (NOT C_INDEX EQUAL -1)
-
-            list (APPEND C_HEADERS ${SOURCE})
-
-        endif (NOT C_INDEX EQUAL -1)
-
-        if (NOT CXX_INDEX EQUAL -1)
-
-            list (APPEND CXX_HEADERS ${SOURCE})
-
-        endif (NOT CXX_INDEX EQUAL -1)
-
-    endforeach ()
-
-    # For known languages, no special options
-    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
-                                        SOURCES ${KNOWN_LANGUAGE_SOURCES}
-                                        OPTIONS ${ADD_CHECKS_TO_TARGET_OPTIONS})
-
-    set (C_LANGUAGE_OPTION)
-    set (CXX_LANGUAGE_OPTION)
+    _polysquare_forward_options (ADD_CHECKS
+                                 SORT_SOURCES_OPTIONS
+                                 SINGLEVAR_ARGS FORCE_LANGUAGE
+                                 MULTIVAR_ARGS SOURCES INCLUDES CPP_IDENTIFIERS)
+    _sort_sources_to_languages (C_SOURCES CXX_SOURCES
+                                ${SORT_SOURCES_OPTIONS})
 
     if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
 
@@ -227,48 +150,18 @@ function (_cppcheck_add_checks_to_target TARGET
 
     # For C headers, pass --language=c
     _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
-                                        SOURCES ${C_HEADERS}
+                                        SOURCES ${C_SOURCES}
                                         OPTIONS
-                                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
+                                        ${ADD_CHECKS_OPTIONS}
                                         ${C_LANGUAGE_OPTION})
 
     # For CXX headers, pass --language=c++ and -D__cplusplus
     _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
-                                        SOURCES ${CXX_HEADERS}
+                                        SOURCES ${CXX_SOURCES}
                                         OPTIONS
-                                        ${ADD_CHECKS_TO_TARGET_OPTIONS}
+                                        ${ADD_CHECKS_OPTIONS}
                                         ${CXX_LANGUAGE_OPTION}
                                         -D__cplusplus)
-
-endfunction ()
-
-function (_append_to_global_property_unique PROPERTY ITEM)
-
-    get_property (GLOBAL_PROPERTY
-                  GLOBAL
-                  PROPERTY ${PROPERTY})
-
-    set (LIST_CONTAINS_ITEM FALSE)
-
-    foreach (LIST_ITEM ${GLOBAL_PROPERTY})
-
-        if (LIST_ITEM STREQUAL ${ITEM})
-
-            set (LIST_CONTAINS_ITEM TRUE)
-            break ()
-
-        endif (LIST_ITEM STREQUAL ${ITEM})
-
-    endforeach ()
-
-    if (NOT LIST_CONTAINS_ITEM)
-
-        set_property (GLOBAL
-                      APPEND
-                      PROPERTY ${PROPERTY}
-                      ${ITEM})
-
-    endif (NOT LIST_CONTAINS_ITEM)
 
 endfunction ()
 
@@ -307,64 +200,20 @@ function (cppcheck_add_to_unused_function_check WHICH)
                            "${UNUSED_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
-    set (FILTERED_CHECK_SOURCES)
-
-    # First case: We're checking generated sources, so
-    # we can just check all passed in sources.
-    if (UNUSED_CHECK_CHECK_GENERATED)
-
-        set (FILTERED_CHECK_SOURCES ${UNUSED_CHECK_SOURCES})
-
-    # Second case: We only want to check real sources,
-    # so filter out generated ones.
-    else (UNUSED_CHECK_CHECK_GENERATED)
-
-        _filter_out_generated_sources (FILTERED_CHECK_SOURCES
-                                       SOURCES ${UNUSED_CHECK_SOURCES})
-
-    endif (UNUSED_CHECK_CHECK_GENERATED)
+    _handle_check_generated_option (UNUSED_CHECK FILTERED_CHECK_SOURCES
+                                    SOURCES ${UNUSED_CHECK_SOURCES})
 
     _append_to_global_property_unique (CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES
                                        ${WHICH})
 
-    foreach (SOURCE ${FILTERED_CHECK_SOURCES})
-
-        set_property (GLOBAL
-                      APPEND
-                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
-                      ${SOURCE})
-
-    endforeach ()
-
-    foreach (INCLUDE ${UNUSED_CHECK_INCLUDES})
-
-        set_property (GLOBAL
-                      APPEND
-                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES
-                      ${INCLUDE})
-
-    endforeach ()
-
-    foreach (DEFINE ${UNUSED_CHECK_DEFINES})
-
-        set_property (GLOBAL
-                      APPEND
-                      PROPERTY
-                      CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES
-                      ${DEFINE})
-
-    endforeach ()
-
-    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.stamp)
-
-    foreach (TARGET ${UNUSED_CHECK_TARGETS})
-
-        set_property (GLOBAL
-                      APPEND
-                      PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS
-                      ${TARGET})
-
-    endforeach ()
+    _append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
+                                LIST ${FILTERED_CHECK_SOURCES})
+    _append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES
+                                LIST ${UNUSED_CHECK_INCLUDES})
+    _append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES
+                                LIST ${UNUSED_CHECK_DEFINES})
+    _append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS
+                                LIST ${UNUSED_CHECK_TARGETS})
 
 endfunction (cppcheck_add_to_unused_function_check)
 
@@ -422,37 +271,28 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
     endforeach ()
 
-    if (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
-
-        message (SEND_ERROR "No unused function check with name ${WHICH} exists")
-        return ()
-
-    endif (NOT HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME)
+    _assert_set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME
+                 "No unused function check with name ${WHICH} exists")
 
     get_property (_cppcheck_unused_function_sources_set
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
                   SET)
 
-    if (NOT _cppcheck_unused_function_sources_set)
-
-        message (SEND_ERROR "No unused function sources registered, "
-                            "they should be registered using "
-                            "cppcheck_add_to_global_unused_function_check "
-                            "before calling "
-                            "cppcheck_add_global_unused_function_check_to_"
-                            "target")
-
-        return ()
-
-    endif (NOT _cppcheck_unused_function_sources_set)
+    _assert_set (_cppcheck_unused_function_sources_set
+                 "No unused function sources registered, "
+                 "they should be registered using "
+                 "cppcheck_add_to_global_unused_function_check "
+                 "before calling "
+                 "cppcheck_add_global_unused_function_check_to_"
+                 "target")
 
     set (OPTIONAL_OPTIONS WARN_ONLY)
     set (MULTIVALUE_OPTIONS
          INCLUDES
          DEFINES)
 
-    cmake_parse_arguments (ADD_GLOBAL_UNUSED_FUNCTION_CHECK
+    cmake_parse_arguments (UNUSED_CHECK
                            "${OPTIONAL_OPTIONS}"
                            ""
                            "${MULTIVALUE_OPTIONS}"
@@ -484,37 +324,22 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
     endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
 
-    if (NOT ADD_GLOBAL_UNUSED_FUNCTION_CHECK_WARN_ONLY)
+    _add_switch (OPTION UNUSED_CHECK_WARN_ONLY
+                 ON --error-exitcode=1)
 
-        list (APPEND OPTIONS --error-exitcode=1)
-
-    endif (NOT ADD_GLOBAL_UNUSED_FUNCTION_CHECK_WARN_ONLY)
-
-    list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES
+    list (APPEND UNUSED_CHECK_INCLUDES
           ${_cppcheck_unused_function_includes})
 
-    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
+    _append_each_to_options_with_prefix (OPTIONS -I
+                                         LIST
+                                         ${UNUSED_CHECK_INCLUDES})
 
-        foreach (_include ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES})
-
-            list (APPEND OPTIONS -I${_include})
-
-        endforeach (_include)
-
-    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
-
-    list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES
+    list (APPEND UNUSED_CHECK_DEFINES
           ${_cppcheck_unused_function_definitions})
 
-    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
-
-        foreach (_definition ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES})
-
-            list (APPEND OPTIONS -D${_definition})
-
-        endforeach ()
-
-    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
+    _append_each_to_options_with_prefix (OPTIONS -D
+                                         LIST
+                                         ${UNUSED_CHECK_DEFINES})
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
                                SOURCES ${_cppcheck_unused_function_sources}
@@ -565,8 +390,6 @@ function (cppcheck_sources TARGET)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
 
-    message ("CAN RUN CPPCHECK ${CPPCHECK_AVAILABLE} ${ARGN}")
-
     if (NOT CPPCHECK_AVAILABLE)
 
         return ()
@@ -591,93 +414,36 @@ function (cppcheck_sources TARGET)
                            "${MULTIVALUE_OPTIONS}"
                            ${ARGN})
 
-    set (FILTERED_CHECK_SOURCES)
+    _handle_check_generated_option (CPPCHECK FILTERED_CHECK_SOURCES
+                                    SOURCES ${CPPCHECK_SOURCES})
 
-    # First case: We're checking generated sources, so
-    # we can just check all passed in sources.
-    if (CPPCHECK_CHECK_GENERATED)
-
-        set (FILTERED_CHECK_SOURCES ${CPPCHECK_SOURCES})
-
-    # Second case: We only want to check real sources,
-    # so filter out generated ones.
-    else (CPPCHECK_CHECK_GENERATED)
-
-        _filter_out_generated_sources (FILTERED_CHECK_SOURCES
-                                       SOURCES ${CPPCHECK_SOURCES})
-
-    endif (CPPCHECK_CHECK_GENERATED)
-
-    # Figure out if this target is linkable. If it is a UTILITY
-    # target then we need to run the checks at the PRE_BUILD stage.
-    set (WHEN PRE_LINK)
-
-    get_property (TARGET_TYPE
-                  TARGET ${TARGET}
-                  PROPERTY TYPE)
-
-    if (TARGET_TYPE STREQUAL "UTILITY")
-
-        set (WHEN PRE_BUILD)
-
-    endif (TARGET_TYPE STREQUAL "UTILITY")
-
-    if (NOT FILTERED_CHECK_SOURCES)
-
-        message (FATAL_ERROR "SOURCES must be set to either native sources "
+    _assert_set (FILTERED_CHECK_SOURCES
+                 "SOURCES must be set to either native sources "
                  "or generated sources with the CHECK_GENERATED flag set "
                  "when using cppcheck_sources")
-
-    endif (NOT FILTERED_CHECK_SOURCES)
 
     set (CPPCHECK_OPTIONS
          ${CPPCHECK_COMMON_OPTIONS}
          --enable=performance
          --enable=portability)
 
-    if (NOT CPPCHECK_WARN_ONLY)
+    _add_switch (CPPCHECK_OPTIONS CPPCHECK_WARN_ONLY
+                 OFF --error-exitcode=1)
+    _add_switch (CPPCHECK_OPTIONS CPPCHECK_NO_CHECK_STYLE
+                 OFF --enable=style)
+    _add_switch (CPPCHECK_OPTIONS CPPCHECK_CHECK_UNUSED
+                 ON --enable=unusedFunction
+                 OFF --suppress=unusedStructMember)
 
-        list (APPEND CPPCHECK_OPTIONS --error-exitcode=1)
+    _append_each_to_options_with_prefix (CPPCHECK_OPTIONS -I
+                                         LIST
+                                         ${CPPCHECK_INCLUDES})
 
-    endif (NOT CPPCHECK_WARN_ONLY)
+    _append_each_to_options_with_prefix (CPPCHECK_OPTIONS -D
+                                         LIST
+                                         ${CPPCHECK_DEFINES})
 
-    if (NOT CPPCHECK_NO_CHECK_STYLE)
-
-        list (APPEND CPPCHECK_OPTIONS --enable=style)
-
-    endif (NOT CPPCHECK_NO_CHECK_STYLE)
-
-    if (CPPCHECK_CHECK_UNUSED)
-
-        list (APPEND CPPCHECK_OPTIONS --enable=unusedFunction)
-
-    else (CPPCHECK_CHECK_UNUSED)
-
-        list (APPEND CPPCHECK_OPTIONS --suppress=unusedStructMember)
-
-    endif (CPPCHECK_CHECK_UNUSED)
-
-    if (CPPCHECK_INCLUDES)
-
-        foreach (_include ${CPPCHECK_INCLUDES})
-
-            list (APPEND CPPCHECK_OPTIONS -I${_include})
-
-        endforeach (_include)
-
-    endif (CPPCHECK_INCLUDES)
-
-    if (CPPCHECK_DEFINES)
-
-        foreach (_definition ${CPPCHECK_DEFINES})
-
-            list (APPEND CPPCHECK_OPTIONS -D${_definition})
-
-        endforeach ()
-
-    endif (CPPCHECK_DEFINES)
-
-    set (EXTRA_ARGS)
+    _get_target_command_attach_point (${TARGET} WHEN)
 
     _cppcheck_add_checks_to_target (${TARGET}
                                     ${WHEN}
@@ -686,28 +452,9 @@ function (cppcheck_sources TARGET)
                                     INCLUDES ${CPPCHECK_INCLUDES}
                                     DEFINES ${CPPCHECK_DEFINES}
                                     CPP_IDENTIFIERS ${CPPCHECK_CPP_IDENTIFIERS}
-                                    FORCE_LANGUAGE ${CPPCHECK_FORCE_LANGUAGE}
-                                    ${EXTRA_ARGS})
+                                    FORCE_LANGUAGE ${CPPCHECK_FORCE_LANGUAGE})
 
 endfunction (cppcheck_sources)
-
-function (_strip_add_custom_target_sources RETURN_SOURCES TARGET)
-
-    get_target_property (_sources ${TARGET} SOURCES)
-    list (GET _sources 0 _first_source)
-    string (FIND "${_first_source}" "/" LAST_SLASH REVERSE)
-    math (EXPR LAST_SLASH "${LAST_SLASH} + 1")
-    string (SUBSTRING "${_first_source}" ${LAST_SLASH} -1 END_OF_SOURCE)
-
-    if (END_OF_SOURCE STREQUAL "${TARGET}")
-
-        list (REMOVE_AT _sources 0)
-
-    endif (END_OF_SOURCE STREQUAL "${TARGET}")
-
-    set (${RETURN_SOURCES} ${_sources} PARENT_SCOPE)
-
-endfunction ()
 
 # cppcheck_target_sources
 #
@@ -733,16 +480,7 @@ function (cppcheck_target_sources TARGET)
 
     _strip_add_custom_target_sources (_files_to_check ${TARGET})
 
-    set (EXTRA_OPTIONS)
-    set (MULTIVALUE_OPTIONS INCLUDES)
-    cmake_parse_arguments (CPPCHECK
-                           ""
-                           ""
-                           "${MULTIVALUE_OPTIONS}"
-                           ${ARGN})
-
     cppcheck_sources (${TARGET}
-                      INCLUDES ${CPPCHECK_INCLUDES}
                       SOURCES ${_files_to_check}
                       ${ARGN})
 
