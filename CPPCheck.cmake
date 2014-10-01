@@ -155,7 +155,7 @@ function (_cppcheck_add_checks_to_target TARGET
          SOURCES
          OPTIONS
          INCLUDES
-         DEFINITIONS
+         DEFINES
          CPP_IDENTIFIERS)
 
     cmake_parse_arguments (ADD_CHECKS_TO_TARGET
@@ -289,7 +289,7 @@ endfunction ()
 # [Optional] SOURCES : A variable containing a list of sources
 # [Optional] INCLUDES : A list of include directories used to
 #                       build these sources.
-# [Optional] DEFINITIONS : Set compile time definitions.
+# [Optional] DEFINES : Set compile time definitions.
 # [Optional] CHECK_GENERATED: Whether to check generated sources too.
 function (cppcheck_add_to_unused_function_check WHICH)
 
@@ -298,7 +298,7 @@ function (cppcheck_add_to_unused_function_check WHICH)
     set (UNUSED_CHECK_MULTIVAR_ARGS
          TARGETS
          SOURCES
-         DEFINITIONS
+         DEFINES
          INCLUDES)
 
     cmake_parse_arguments (UNUSED_CHECK
@@ -345,13 +345,13 @@ function (cppcheck_add_to_unused_function_check WHICH)
 
     endforeach ()
 
-    foreach (DEFINITION ${UNUSED_CHECK_DEFINITIONS})
+    foreach (DEFINE ${UNUSED_CHECK_DEFINES})
 
         set_property (GLOBAL
                       APPEND
                       PROPERTY
-                      CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINITIONS
-                      ${DEFINITION})
+                      CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES
+                      ${DEFINE})
 
     endforeach ()
 
@@ -394,7 +394,7 @@ endfunction (cppcheck_get_unused_function_checks)
 # [Optional] WARN_ONLY : Only print warnings if there are unused functions,
 #                        do not error out
 # [Optional] INCLUDES : Include directories to search when analyzing.
-# [Optional] DEFINITIONS : Set compile time definitions.
+# [Optional] DEFINES : Set compile time definitions.
 function (cppcheck_add_unused_function_check_with_name WHICH)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
@@ -450,7 +450,7 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
     set (OPTIONAL_OPTIONS WARN_ONLY)
     set (MULTIVALUE_OPTIONS
          INCLUDES
-         DEFINITIONS)
+         DEFINES)
 
     cmake_parse_arguments (ADD_GLOBAL_UNUSED_FUNCTION_CHECK
                            "${OPTIONAL_OPTIONS}"
@@ -468,7 +468,7 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
     get_property (_cppcheck_unused_function_definitions
                   GLOBAL
-                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINITIONS)
+                  PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES)
 
     get_property (_cppcheck_unused_function_targets
                   GLOBAL
@@ -503,18 +503,18 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
     endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_INCLUDES)
 
-    list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINITIONS
+    list (APPEND ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES
           ${_cppcheck_unused_function_definitions})
 
-    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINITIONS)
+    if (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
 
-        foreach (_definition ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINITIONS})
+        foreach (_definition ${ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES})
 
             list (APPEND OPTIONS -D${_definition})
 
         endforeach ()
 
-    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINITIONS)
+    endif (ADD_GLOBAL_UNUSED_FUNCTION_CHECK_DEFINES)
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
                                SOURCES ${_cppcheck_unused_function_sources}
@@ -557,13 +557,15 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 # [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
 #                             e.g. C, CXX
 # [Optional] INCLUDES : Include directories to search.
-# [Optional] DEFINITIONS : Set compile time definitions.
+# [Optional] DEFINES : Set compile time definitions.
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
 #                              any header file specified in the source
 #                              list is definitely a C++ header file
 function (cppcheck_sources TARGET)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
+
+    message ("CAN RUN CPPCHECK ${CPPCHECK_AVAILABLE} ${ARGN}")
 
     if (NOT CPPCHECK_AVAILABLE)
 
@@ -580,7 +582,7 @@ function (cppcheck_sources TARGET)
     set (SINGLEVALUE_OPTIONS FORCE_LANGUAGE)
     set (MULTIVALUE_OPTIONS
          INCLUDES
-         DEFINITIONS
+         DEFINES
          SOURCES
          CPP_IDENTIFIERS)
     cmake_parse_arguments (CPPCHECK
@@ -665,15 +667,15 @@ function (cppcheck_sources TARGET)
 
     endif (CPPCHECK_INCLUDES)
 
-    if (CPPCHECK_DEFINITIONS)
+    if (CPPCHECK_DEFINES)
 
-        foreach (_definition ${CPPCHECK_DEFINITIONS})
+        foreach (_definition ${CPPCHECK_DEFINES})
 
             list (APPEND CPPCHECK_OPTIONS -D${_definition})
 
         endforeach ()
 
-    endif (CPPCHECK_DEFINITIONS)
+    endif (CPPCHECK_DEFINES)
 
     set (EXTRA_ARGS)
 
@@ -682,7 +684,7 @@ function (cppcheck_sources TARGET)
                                     SOURCES ${FILTERED_CHECK_SOURCES}
                                     OPTIONS ${CPPCHECK_OPTIONS}
                                     INCLUDES ${CPPCHECK_INCLUDES}
-                                    DEFINITIONS ${CPPCHECK_DEFINITIONS}
+                                    DEFINES ${CPPCHECK_DEFINES}
                                     CPP_IDENTIFIERS ${CPPCHECK_CPP_IDENTIFIERS}
                                     FORCE_LANGUAGE ${CPPCHECK_FORCE_LANGUAGE}
                                     ${EXTRA_ARGS})
@@ -723,7 +725,7 @@ endfunction ()
 # [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
 #                             e.g. C, CXX
 # [Optional] INCLUDES : Check header files in specified include directories.
-# [Optional] DEFINITIONS : Set compile time definitions.
+# [Optional] DEFINES : Set compile time definitions.
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
 #                              any header file specified in the target's
 #                              sources is definitely a C++ header file
@@ -757,7 +759,7 @@ endfunction (cppcheck_target_sources)
 #         source files to.
 # [Optional] INCLUDES : Include directories to scan when parsing
 #            the sources for this target.
-# [Optional] DEFINITIONS : Set compile time definitions.
+# [Optional] DEFINES : Set compile time definitions.
 # [Optional] NO_CHECK_GENERATED : Do not add generated files
 #            to the unused function check.
 function (cppcheck_add_target_sources_to_unused_function_check TARGET

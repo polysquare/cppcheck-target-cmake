@@ -24,8 +24,8 @@ set (INCLUDES
 
 cppcheck_add_to_unused_function_check (global
                                        SOURCES ${SOURCES}
-                                       DEFINITIONS DEFINITION_SUCCESS=1)
+                                       DEFINES DEFINITION_SUCCESS=1)
 
 # Put CMAKE_CURRENT_SOURCE_DIR in the global INCLUDES
 cppcheck_add_unused_function_check_with_name (global
-                                              DEFINITIONS GLOBAL_DEFINITION=1)
+                                              DEFINES GLOBAL_DEFINITION=1)
