@@ -22,5 +22,5 @@ endforeach ()
 add_library (library SHARED
              ${SOURCES})
 cppcheck_target_sources (library
-                         DEFINITIONS
+                         DEFINES
                          DEFINITION_SUCCESS=1)
