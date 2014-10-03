@@ -137,7 +137,7 @@ function (_cppcheck_add_checks_to_target TARGET
                          SORT_SOURCES_OPTIONS
                          SINGLEVAR_ARGS FORCE_LANGUAGE
                          MULTIVAR_ARGS SOURCES INCLUDES CPP_IDENTIFIERS)
-    psq_sort_sources_to_languages (C_SOURCES CXX_SOURCES
+    psq_sort_sources_to_languages (C_SOURCES CXX_SOURCES HEADERS
                                    ${SORT_SOURCES_OPTIONS})
 
     if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
