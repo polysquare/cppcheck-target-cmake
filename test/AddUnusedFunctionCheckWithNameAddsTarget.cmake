@@ -7,7 +7,13 @@
 include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
 include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
 
-find_program (CPPCHECK_EXECUTABLE cppcheck)
+foreach (PATH ${CMAKE_MODULE_PATH})
+
+    message ("PATH: ${PATH}")
+
+endforeach ()
+
+_validate_cppcheck (CONTINUE)
 
 set (SOURCES
      ${CMAKE_CURRENT_SOURCE_DIR}/FirstSource.cpp)
