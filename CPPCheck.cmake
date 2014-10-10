@@ -15,58 +15,17 @@ set (CPPCHECK_COMMON_OPTIONS
      --inline-suppr
      --max-configs=1)
 
-function (_validate_cppcheck CONTINUE)
+macro (_validate_cppcheck CONTINUE)
 
-    if (DEFINED CPPCHECK_VERSION)
+    if (NOT DEFINED CPPCheck_FOUND)
 
-        set (${CONTINUE} TRUE PARENT_SCOPE)
-        return ()
+        find_package (CPPCheck ${ARGN})
 
-    endif (DEFINED CPPCHECK_VERSION)
+    endif (NOT DEFINED CPPCheck_FOUND)
 
-    if (NOT CPPCHECK_EXECUTABLE)
+    set (${CONTINUE} CPPCheck_FOUND)
 
-        message (SEND_ERROR "cppcheck binary was not found, make sure "
-                            "to call find_program (cppcheck) before "
-                            "using this module")
-
-    else (NOT CPPCHECK_EXECUTABLE)
-
-        set (${CONTINUE} TRUE PARENT_SCOPE)
-
-        # Check the version of cppcheck. If it is < 1.58 output a warning about
-        # detecting the language of header files
-        execute_process (COMMAND ${CPPCHECK_EXECUTABLE} --version
-                         OUTPUT_VARIABLE CPPCHECK_VERSION_OUTPUT)
-
-        string (LENGTH "Cppcheck " CPPCHECK_VERSION_HEADER_LENGTH)
-        set (CPPCHECK_VERSION_LENGTH 4)
-        string (SUBSTRING "${CPPCHECK_VERSION_OUTPUT}"
-                ${CPPCHECK_VERSION_HEADER_LENGTH} 
-                ${CPPCHECK_VERSION_LENGTH}
-                CPPCHECK_READ_VERSION)
-
-        set (CPPCHECK_VERSION ${CPPCHECK_READ_VERSION} CACHE STRING "" FORCE)
-        mark_as_advanced (CPPCHECK_VERSION)
-
-        message (STATUS "Detected cppcheck version ${CPPCHECK_VERSION}")
-
-        if (${CPPCHECK_VERSION} VERSION_LESS 1.58)
-
-            message (WARNING "Only cppcheck versions >= 1.58 support specifying"
-                             " a language for analysis. You may encounter false"
-                             " positives when scanning header files if cppcheck"
-                             " is unable to determine their source language."
-                             " Consider upgrading to a newer version of"
-                             " cppcheck, such that this script can specify the"
-                             " language of your header files after detecting"
-                             " them")
-
-        endif (${CPPCHECK_VERSION} VERSION_LESS 1.58)
-
-    endif (NOT CPPCHECK_EXECUTABLE)
-
-endfunction (_validate_cppcheck)
+endmacro (_validate_cppcheck)
 
 function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
