@@ -3,7 +3,7 @@
 #
 # See LICENCE.md for Copyright Information.
 
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
+include (CMakeUnit)
 set (BUILD_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/BUILD.output)
 
 set (CXX_REGEX "^.*cppcheck.*language=c\\+\\+.*header.h.*$")

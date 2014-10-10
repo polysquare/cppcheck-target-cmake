@@ -1,3 +1,4 @@
+
 # /test/BreakIncludeCyclesWhenScanningForHeadersVerify.cmake
 #
 # When a toplevel header file is included by a header file which in itself
@@ -6,7 +7,7 @@
 #
 # See LICENCE.md for Copyright information
 
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
+include (CMakeUnit)
 set (BUILD_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/BUILD.output)
 
 assert_file_has_line_matching (${BUILD_OUTPUT}
