@@ -5,8 +5,8 @@
 #
 # See LICENCE.md for Copyright information.
 
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
+include (CPPCheck)
+include (CMakeUnit)
 
 set (RELATIVE_REAL_SOURCE_DIR
      ${CMAKE_CURRENT_SOURCE_DIR}/../)

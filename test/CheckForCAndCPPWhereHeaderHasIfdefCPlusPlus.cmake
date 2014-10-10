@@ -8,10 +8,10 @@
 #
 # See LICENCE.md for Copyright Information.
 
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
+include (CPPCheck)
+include (CMakeUnit)
 
-find_program (CPPCHECK_EXECUTABLE cppcheck)
+_validate_cppcheck (CONTINUE)
 
 set (INCLUDE_DIRECTORY
      ${CMAKE_CURRENT_BINARY_DIR}/include)

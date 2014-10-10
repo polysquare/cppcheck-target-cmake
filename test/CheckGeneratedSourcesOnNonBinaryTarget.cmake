@@ -7,10 +7,10 @@
 #
 # See LICENCE.md for Copyright information.
 
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}/CPPCheck.cmake)
-include (${CPPCHECK_COMMON_UNIVERSAL_CMAKE_TESTS_DIRECTORY}/CMakeUnit.cmake)
+include (CPPCheck)
+include (CMakeUnit)
 
-find_program (CPPCHECK_EXECUTABLE cppcheck)
+_validate_cppcheck (CONTINUE)
 
 set (NATIVE_SOURCE
      ${CMAKE_CURRENT_SOURCE_DIR}/FirstSource.cpp)
