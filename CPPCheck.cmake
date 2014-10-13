@@ -23,7 +23,7 @@ macro (_validate_cppcheck CONTINUE)
 
     endif (NOT DEFINED CPPCheck_FOUND)
 
-    set (${CONTINUE} CPPCheck_FOUND)
+    set (${CONTINUE} ${CPPCheck_FOUND})
 
 endmacro (_validate_cppcheck)
 
