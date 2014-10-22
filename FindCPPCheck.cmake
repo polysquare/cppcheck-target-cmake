@@ -42,7 +42,7 @@ function (_find_cppcheck)
         psq_find_tool_extract_version (${CPPCHECK_EXECUTABLE} CPPCHECK_VERSION
                                        VERSION_ARG --version
                                        VERSION_HEADER "Cppcheck "
-                                       VERSION_END_TOKEN "\n")
+                                       VERSION_END_TOKEN " ")
         psq_check_and_report_tool_version (CPPCheck
                                            ${CPPCHECK_VERSION}
                                            FOUND_APPROPRIATE_VERSION)
