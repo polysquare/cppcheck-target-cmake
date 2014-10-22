@@ -25,13 +25,6 @@ set (CMAKE_MODULE_PATH
      ${CPPCHECK_COMMON_UNIVERSAL_CMAKE_DIRECTORY}
      ${CMAKE_MODULE_PATH})
 
-foreach (PATH ${CMAKE_MODULE_PATH})
-     set (CPPCHECK_INITIAL_CACHE_CONTENTS
-          "${CPPCHECK_INITIAL_CACHE_CONTENTS}\n"
-          "set (CMAKE_MODULE_PATH ${PATH} \${CMAKE_MODULE_PATH}\n"
-          "     CACHE STRING \"\" FORCE)\n")
-endforeach ()
-
 # Include CPPCheck.cmake too so that we can figure out which tests we can run
 include (CPPCheck)
 
@@ -45,8 +38,7 @@ endif (NOT CONTINUE)
 
 include (CMakeUnitRunner)
 
-bootstrap_cmake_unit (INITIAL_CACHE_CONTENTS
-                      CPPCHECK_INITIAL_CACHE_CONTENTS)
+bootstrap_cmake_unit (VARIABLES CMAKE_MODULE_PATH)
 
 add_cmake_test (AddSourcesToUnusedFunctionCheck)
 add_cmake_test (AddUnusedFunctionCheckWithNameAddsTarget)
