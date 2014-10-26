@@ -75,13 +75,6 @@ function (_find_cppcheck)
                                        CPPCHECK_EXECUTABLE
                                        CPPCHECK_VERSION)
 
-    psq_print_if_not_quiet (CPPCheck
-                            MSG "CPPCheck version"
-                                "${CPPCHECK_VERSION} found at"
-                                "${CPPCHECK_EXECUTABLE}"
-                            DEPENDS CPPCHECK_VERSION
-                                    CPPCHECK_EXECUTABLE)
-
     set (CPPCheck_FOUND ${CPPCheck_FOUND} PARENT_SCOPE)
 
 endfunction (_find_cppcheck)
