@@ -16,7 +16,11 @@
 #
 # See LICENCE.md for Copyright info
 
-include (${CMAKE_CURRENT_LIST_DIR}/tooling-find-package-cmake-util/ToolingFindPackageUtil.cmake)
+set (CMAKE_MODULE_PATH
+     ${CMAKE_MODULE_PATH}
+     ${CMAKE_CURRENT_LIST_DIR}/tooling-find-package-cmake-util)
+
+include (ToolingFindPackageUtil)
 
 function (_find_cppcheck)
 
@@ -43,55 +47,42 @@ function (_find_cppcheck)
                                        VERSION_ARG --version
                                        VERSION_HEADER "Cppcheck "
                                        VERSION_END_TOKEN " ")
-        psq_check_and_report_tool_version (CPPCheck
-                                           ${CPPCHECK_VERSION}
-                                           FOUND_APPROPRIATE_VERSION)
 
         # Check the version of cppcheck. If it is < 1.58 output a warning about
         # detecting the language of header files
         if (${CPPCHECK_VERSION} VERSION_LESS 1.58)
 
-            psq_print_if_not_quiet (CPPCheck "Only cppcheck versions >= 1.58"
-                                             "support specifying a language for"
-                                             "analysis. You may encounter false"
-                                             "positives when scanning header"
-                                             "files if cppcheck is unable to"
-                                             "determine their source language."
-                                             "Consider upgrading to a newer"
-                                             "version of cppcheck, such that"
-                                             "this script can specify the"
-                                             "language of your header files"
-                                             "after detecting them")
+            psq_print_if_not_quiet (CPPCheck
+                                    MSG "Only cppcheck versions >= 1.58"
+                                         "support specifying a language for"
+                                         "analysis. You may encounter false"
+                                         "positives when scanning header"
+                                         "files if cppcheck is unable to"
+                                         "determine their source language."
+                                         "Consider upgrading to a newer"
+                                         "version of cppcheck, such that"
+                                         "this script can specify the"
+                                         "language of your header files"
+                                         "after detecting them")
 
         endif (${CPPCHECK_VERSION} VERSION_LESS 1.58)
 
-        # If we found all the paths set CPPCheck_FOUND and other related variables
-        if (FOUND_APPROPRIATE_VERSION)
-
-            set (CPPCheck_FOUND TRUE)
-            set (CPPCHECK_FOUND TRUE PARENT_SCOPE)
-            set (CPPCHECK_EXECUTABLE ${CPPCHECK_EXECUTABLE} PARENT_SCOPE)
-            set (CPPCHECK_VERSION ${CPPCHECK_VERSION} PARENT_SCOPE)
-
-            psq_print_if_not_quiet (CPPCheck "CPPCheck version"
-                                             "${CPPCHECK_VERSION} found at"
-                                             "${CPPCHECK_EXECUTABLE}")
-
-        else (FOUND_APPROPRIATE_VERSION)
-
-            set (CPPCheck_FOUND FALSE)
-
-        endif (FOUND_APPROPRIATE_VERSION)
-
     endif (CPPCHECK_EXECUTABLE)
 
+    psq_check_and_report_tool_version (CPPCheck
+                                       "${CPPCHECK_VERSION}"
+                                       REQUIRED_VARS
+                                       CPPCHECK_EXECUTABLE
+                                       CPPCHECK_VERSION)
+
+    psq_print_if_not_quiet (CPPCheck
+                            MSG "CPPCheck version"
+                                "${CPPCHECK_VERSION} found at"
+                                "${CPPCHECK_EXECUTABLE}"
+                            DEPENDS CPPCHECK_VERSION
+                                    CPPCHECK_EXECUTABLE)
+
     set (CPPCheck_FOUND ${CPPCheck_FOUND} PARENT_SCOPE)
-
-    if (NOT CPPCheck_FOUND)
-
-        psq_report_tool_not_found (CPPCheck "CPPCheck was not found")
-
-    endif (NOT CPPCheck_FOUND)
 
 endfunction (_find_cppcheck)
 

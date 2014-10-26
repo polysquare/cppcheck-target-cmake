@@ -78,8 +78,6 @@ add_cmake_build_test (StampfileGeneratedForUnusedFunctionCheck
                       StampfileGeneratedForUnusedFunctionCheckVerify)
 add_cmake_build_test (MultipleUnusedFunctionChecksCoexist
                       MultipleUnusedFunctionChecksCoexistVerify)
-add_cmake_build_test (UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExists
-                      UnusedFunctionCheckRunForGeneratedSourcesIfStampfileExistsVerify)
 
 # We can't verify these without being able to specify a language to cppcheck
 if (CPPCHECK_VERSION VERSION_GREATER 1.57)
