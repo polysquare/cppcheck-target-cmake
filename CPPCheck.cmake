@@ -6,8 +6,12 @@
 #
 # See LICENCE.md for Copyright information.
 
+set (CMAKE_MODULE_PATH
+     ${CMAKE_CURRENT_LIST_DIR}/tooling-cmake-util
+     ${CMAKE_MODULE_PATH})
+
 include (CMakeParseArguments)
-include (${CMAKE_CURRENT_LIST_DIR}/tooling-cmake-util/PolysquareToolingUtil.cmake)
+include (PolysquareToolingUtil)
 
 set (CPPCHECK_COMMON_OPTIONS
      --quiet
@@ -29,53 +33,65 @@ endmacro (_validate_cppcheck)
 
 function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
-    set (COMMANDLINE_MULTIVAR_OPTIONS SOURCES OPTIONS)
+    set (COMMANDLINE_SINGLEVAR_ARGS LANGUAGE)
+    set (COMMANDLINE_MULTIVAR_ARGS SOURCES OPTIONS)
 
     cmake_parse_arguments (COMMANDLINE
                            ""
-                           ""
-                           "${COMMANDLINE_MULTIVAR_OPTIONS}"
+                           "${COMMANDLINE_SINGLEVAR_ARGS}"
+                           "${COMMANDLINE_MULTIVAR_ARGS}"
                            ${ARGN})
+
+    if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+
+        if (COMMANDLINE_LANGUAGE STREQUAL "C")
+
+            set (LANGUAGE_OPTION --language=c)
+
+        elseif (COMMANDLINE_LANGUAGE STREQUAL "CXX")
+
+            set (LANGUAGE_OPTION --language=c++ -D__cplusplus)
+
+        endif (COMMANDLINE_LANGUAGE STREQUAL "C")
+
+    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
 
     set (${COMMANDLINE_RETURN}
          ${CPPCHECK_EXECUTABLE}
          ${COMMANDLINE_OPTIONS}
+         ${LANGUAGE_OPTION}
          ${COMMANDLINE_SOURCES}
          PARENT_SCOPE)
 
 endfunction ()
 
-function (_cppcheck_add_normal_check_command TARGET
-                                             WHEN)
+function (_cppcheck_add_normal_check_command TARGET SOURCE)
 
-    set (ADD_NORMAL_CHECK_MULTIVAR_OPTIONS SOURCES OPTIONS)
+    set (ADD_NORMAL_CHECK_SINGLEVAR_ARGS LANGUAGE)
+    set (ADD_NORMAL_CHECK_MULTIVAR_ARGS OPTIONS)
 
     cmake_parse_arguments (ADD_NORMAL_CHECK
                            ""
-                           ""
-                           "${ADD_NORMAL_CHECK_MULTIVAR_OPTIONS}"
+                           "${ADD_NORMAL_CHECK_SINGLEVAR_ARGS}"
+                           "${ADD_NORMAL_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
-    # Silently return if we don't have any sources to scan here
-    if (NOT ADD_NORMAL_CHECK_SOURCES)
-
-        return ()
-
-    endif (NOT ADD_NORMAL_CHECK_SOURCES)
-
+    # Get a commandline
+    psq_forward_options (ADD_NORMAL_CHECK GET_COMMANDLINE_FORWARD_OPTIONS
+                         SINGLEVAR_ARGS LANGUAGE
+                         MULTIVAR_ARGS OPTIONS)
     _cppcheck_get_commandline (CPPCHECK_COMMAND
-                               SOURCES ${ADD_NORMAL_CHECK_SOURCES}
-                               OPTIONS ${ADD_NORMAL_CHECK_OPTIONS})
+                               SOURCES ${SOURCE}
+                               ${GET_COMMANDLINE_FORWARD_OPTIONS})
 
-    add_custom_command (TARGET ${TARGET}
-                        ${WHEN}
-                        COMMAND
-                        ${CPPCHECK_COMMAND})
+    # cppcheck-c and cppcheck-cxx can both be run on one source
+    string (TOLOWER "${ADD_NORMAL_CHECK_LANGUAGE}" LANGUAGE_LOWER)
+    psq_run_tool_on_source (${TARGET} ${SOURCE} "cppcheck-${LANGUAGE_LOWER}"
+                            COMMAND ${CPPCHECK_COMMAND})
 
 endfunction (_cppcheck_add_normal_check_command)
 
-function (_cppcheck_add_checks_to_target TARGET
-                                         WHEN)
+function (_cppcheck_add_checks_to_target TARGET)
 
     set (ADD_CHECKS_OPTIONS CHECK_GENERATED)
     set (ADD_CHECKS_SINGLEVAR_OPTIONS FORCE_LANGUAGE)
@@ -99,27 +115,25 @@ function (_cppcheck_add_checks_to_target TARGET
     psq_sort_sources_to_languages (C_SOURCES CXX_SOURCES HEADERS
                                    ${SORT_SOURCES_OPTIONS})
 
-    if (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
-
-        set (C_LANGUAGE_OPTION --language=c)
-        set (CXX_LANGUAGE_OPTION --language=c++)
-
-    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
-
     # For C headers, pass --language=c
-    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
-                                        SOURCES ${C_SOURCES}
-                                        OPTIONS
-                                        ${ADD_CHECKS_OPTIONS}
-                                        ${C_LANGUAGE_OPTION})
+    foreach (SOURCE ${C_SOURCES})
+
+        _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
+                                            OPTIONS
+                                            ${ADD_CHECKS_OPTIONS}
+                                            LANGUAGE C)
+
+    endforeach ()
 
     # For CXX headers, pass --language=c++ and -D__cplusplus
-    _cppcheck_add_normal_check_command (${TARGET} ${WHEN}
-                                        SOURCES ${CXX_SOURCES}
-                                        OPTIONS
-                                        ${ADD_CHECKS_OPTIONS}
-                                        ${CXX_LANGUAGE_OPTION}
-                                        -D__cplusplus)
+    foreach (SOURCE ${CXX_SOURCES})
+
+        _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
+                                            OPTIONS
+                                            ${ADD_CHECKS_OPTIONS}
+                                            LANGUAGE CXX)
+
+    endforeach ()
 
 endfunction ()
 
@@ -401,10 +415,7 @@ function (cppcheck_sources TARGET)
                                             LIST
                                             ${CPPCHECK_DEFINES})
 
-    psq_get_target_command_attach_point (${TARGET} WHEN)
-
     _cppcheck_add_checks_to_target (${TARGET}
-                                    ${WHEN}
                                     SOURCES ${FILTERED_CHECK_SOURCES}
                                     OPTIONS ${CPPCHECK_OPTIONS}
                                     INCLUDES ${CPPCHECK_INCLUDES}
@@ -436,8 +447,7 @@ endfunction (cppcheck_sources)
 #                              sources is definitely a C++ header file
 function (cppcheck_target_sources TARGET)
 
-    psq_strip_add_custom_target_sources (_files_to_check ${TARGET})
-
+    psq_strip_extraneous_sources (_files_to_check ${TARGET})
     cppcheck_sources (${TARGET}
                       SOURCES ${_files_to_check}
                       ${ARGN})
@@ -461,8 +471,7 @@ endfunction (cppcheck_target_sources)
 function (cppcheck_add_target_sources_to_unused_function_check TARGET
                                                                WHICH)
 
-    psq_strip_add_custom_target_sources (_files_to_check ${TARGET})
-
+    psq_strip_extraneous_sources (_files_to_check ${TARGET})
     cppcheck_add_to_unused_function_check (${WHICH}
                                            TARGETS ${TARGET}
                                            SOURCES ${_files_to_check}
