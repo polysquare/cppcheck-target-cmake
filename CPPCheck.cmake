@@ -84,9 +84,9 @@ function (_cppcheck_add_normal_check_command TARGET SOURCE)
                                SOURCES ${SOURCE}
                                ${GET_COMMANDLINE_FORWARD_OPTIONS})
 
-    # cppcheck-c and cppcheck-cxx can both be run on one source
+    # cppcheck (c) and cppcheck (cxx) can both be run on one source
     string (TOLOWER "${ADD_NORMAL_CHECK_LANGUAGE}" LANGUAGE_LOWER)
-    psq_run_tool_on_source (${TARGET} ${SOURCE} "cppcheck-${LANGUAGE_LOWER}"
+    psq_run_tool_on_source (${TARGET} ${SOURCE} "cppcheck (${LANGUAGE_LOWER})"
                             COMMAND ${CPPCHECK_COMMAND})
 
 endfunction (_cppcheck_add_normal_check_command)
