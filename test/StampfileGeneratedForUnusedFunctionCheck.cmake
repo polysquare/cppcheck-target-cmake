@@ -18,7 +18,7 @@ cppcheck_add_to_unused_function_check (global
 
 cppcheck_add_unused_function_check_with_name (global)
 
-set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/global.stamp)
+set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/global.cppcheck-unused.stamp)
 
 assert_has_property_with_value (SOURCE ${STAMPFILE}
                                 GENERATED

@@ -17,7 +17,7 @@ set (SOURCES
 
 file (WRITE ${SOURCES} "")
 
-set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/global.stamp)
+set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/global.cppcheck-unused.stamp)
 
 # STAMPFILE will already have a build rule, so we create a
 # proxy STAMPFILE stamp and then silently generate the stampfile
