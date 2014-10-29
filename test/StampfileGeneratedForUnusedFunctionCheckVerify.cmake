@@ -6,4 +6,4 @@
 include (CPPCheck)
 include (CMakeUnit)
 
-assert_file_exists (${CMAKE_CURRENT_BINARY_DIR}/global.stamp)
+assert_file_exists (${CMAKE_CURRENT_BINARY_DIR}/global.cppcheck-unused.stamp)

@@ -68,7 +68,7 @@ endfunction ()
 function (_cppcheck_add_normal_check_command TARGET SOURCE)
 
     set (ADD_NORMAL_CHECK_SINGLEVAR_ARGS LANGUAGE)
-    set (ADD_NORMAL_CHECK_MULTIVAR_ARGS OPTIONS)
+    set (ADD_NORMAL_CHECK_MULTIVAR_ARGS OPTIONS DEPENDS)
 
     cmake_parse_arguments (ADD_NORMAL_CHECK
                            ""
@@ -86,8 +86,11 @@ function (_cppcheck_add_normal_check_command TARGET SOURCE)
 
     # cppcheck (c) and cppcheck (cxx) can both be run on one source
     string (TOLOWER "${ADD_NORMAL_CHECK_LANGUAGE}" LANGUAGE_LOWER)
+    psq_forward_options (ADD_NORMAL_CHECK RUN_TOOL_ON_SOURCE_FORWARD
+                         MULTIVAR_ARGS DEPENDS)
     psq_run_tool_on_source (${TARGET} ${SOURCE} "cppcheck (${LANGUAGE_LOWER})"
-                            COMMAND ${CPPCHECK_COMMAND})
+                            COMMAND ${CPPCHECK_COMMAND}
+                            ${RUN_TOOL_ON_SOURCE_FORWARD})
 
 endfunction (_cppcheck_add_normal_check_command)
 
@@ -100,7 +103,8 @@ function (_cppcheck_add_checks_to_target TARGET)
          OPTIONS
          INCLUDES
          DEFINES
-         CPP_IDENTIFIERS)
+         CPP_IDENTIFIERS
+         DEPENDS)
 
     cmake_parse_arguments (ADD_CHECKS
                            "${ADD_CHECKS_OPTIONS}"
@@ -115,13 +119,17 @@ function (_cppcheck_add_checks_to_target TARGET)
     psq_sort_sources_to_languages (C_SOURCES CXX_SOURCES HEADERS
                                    ${SORT_SOURCES_OPTIONS})
 
+    psq_forward_options (ADD_CHECKS ADD_NORMAL_CHECK_COMMAND_FORWARD
+                         MULTIVAR_ARGS DEPENDS)
+
     # For C headers, pass --language=c
     foreach (SOURCE ${C_SOURCES})
 
         _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
                                             OPTIONS
                                             ${ADD_CHECKS_OPTIONS}
-                                            LANGUAGE C)
+                                            LANGUAGE C
+                                            ${ADD_NORMAL_CHECK_COMMAND_FORWARD})
 
     endforeach ()
 
@@ -131,7 +139,8 @@ function (_cppcheck_add_checks_to_target TARGET)
         _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
                                             OPTIONS
                                             ${ADD_CHECKS_OPTIONS}
-                                            LANGUAGE CXX)
+                                            LANGUAGE CXX
+                                            ${ADD_NORMAL_CHECK_COMMAND_FORWARD})
 
     endforeach ()
 
@@ -216,6 +225,7 @@ endfunction (cppcheck_get_unused_function_checks)
 #                        do not error out
 # [Optional] INCLUDES : Include directories to search when analyzing.
 # [Optional] DEFINES : Set compile time definitions.
+# [Optional] DEPENDS : Targets on which this unused function check depends.
 function (cppcheck_add_unused_function_check_with_name WHICH)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
@@ -259,15 +269,13 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
                     "cppcheck_add_global_unused_function_check_to_"
                     "target")
 
-    set (OPTIONAL_OPTIONS WARN_ONLY)
-    set (MULTIVALUE_OPTIONS
-         INCLUDES
-         DEFINES)
+    set (UNUSED_CHECK_OPTION_ARGS WARN_ONLY)
+    set (UNUSED_CHECK_MULTIVAR_ARGS INCLUDES DEFINES DEPENDS)
 
     cmake_parse_arguments (UNUSED_CHECK
-                           "${OPTIONAL_OPTIONS}"
+                           "${UNUSED_CHECK_OPTION_ARGS}"
                            ""
-                           "${MULTIVALUE_OPTIONS}"
+                           "${UNUSED_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
     get_property (_cppcheck_unused_function_sources
@@ -317,23 +325,18 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
                                SOURCES ${_cppcheck_unused_function_sources}
                                OPTIONS ${OPTIONS})
 
-    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.stamp)
+    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.cppcheck-unused.stamp)
 
     add_custom_command (OUTPUT ${STAMPFILE}
                         COMMAND ${CPPCHECK_COMMAND}
                         COMMAND ${CMAKE_COMMAND} -E touch ${STAMPFILE}
-                        DEPENDS ${_cppcheck_unused_function_sources}
+                        DEPENDS
+                        ${_cppcheck_unused_function_sources}
+                        ${_cppcheck_unused_function_targets}
+                        ${UNUSED_CHECK_DEPENDS}
                         COMMENT "Running unused function check: ${WHICH}")
 
-    add_custom_target (${WHICH} ALL
-                       DEPENDS
-                       ${STAMPFILE})
-
-    if (_cppcheck_unused_function_targets)
-
-        add_dependencies (${WHICH} ${_cppcheck_unused_function_targets})
-
-    endif (_cppcheck_unused_function_targets)
+    add_custom_target (${WHICH} ALL SOURCES ${STAMPFILE})
 
 endfunction (cppcheck_add_unused_function_check_with_name)
 
@@ -358,6 +361,7 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
 #                              any header file specified in the source
 #                              list is definitely a C++ header file
+# [Optional] DEPENDS : Targets or source files to depend on.
 function (cppcheck_sources TARGET)
 
     _validate_cppcheck (CPPCHECK_AVAILABLE)
@@ -379,7 +383,8 @@ function (cppcheck_sources TARGET)
          INCLUDES
          DEFINES
          SOURCES
-         CPP_IDENTIFIERS)
+         CPP_IDENTIFIERS
+         DEPENDS)
     cmake_parse_arguments (CPPCHECK
                            "${OPTIONAL_OPTIONS}"
                            "${SINGLEVALUE_OPTIONS}"
@@ -415,13 +420,16 @@ function (cppcheck_sources TARGET)
                                             LIST
                                             ${CPPCHECK_DEFINES})
 
+    psq_forward_options (CPPCHECK ADD_CHECKS_TO_TARGET_FORWARD
+                         SINGLEVAR_ARGS FORCE_LANGUAGE
+                         MULTIVAR_ARGS OPTIONS
+                                       INCLUDES
+                                       DEFINES
+                                       CPP_IDENTIFIERS
+                                       DEPENDS)
     _cppcheck_add_checks_to_target (${TARGET}
                                     SOURCES ${FILTERED_CHECK_SOURCES}
-                                    OPTIONS ${CPPCHECK_OPTIONS}
-                                    INCLUDES ${CPPCHECK_INCLUDES}
-                                    DEFINES ${CPPCHECK_DEFINES}
-                                    CPP_IDENTIFIERS ${CPPCHECK_CPP_IDENTIFIERS}
-                                    FORCE_LANGUAGE ${CPPCHECK_FORCE_LANGUAGE})
+                                    ${ADD_CHECKS_TO_TARGET_FORWARD})
 
 endfunction (cppcheck_sources)
 
@@ -445,6 +453,7 @@ endfunction (cppcheck_sources)
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
 #                              any header file specified in the target's
 #                              sources is definitely a C++ header file
+# [Optional] DEPENDS : Targets or source files to depend on.
 function (cppcheck_target_sources TARGET)
 
     psq_strip_extraneous_sources (_files_to_check ${TARGET})
