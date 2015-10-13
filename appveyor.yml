@@ -1,0 +1,28 @@
+clone_depth: 10
+
+cache:
+ - C:/container -> appveyor.yml
+
+environment:
+  matrix:
+    - CMAKE_GENERATOR: "NMake Makefiles"
+    - CMAKE_GENERATOR: "Visual Studio 10 2010"
+    - CMAKE_GENERATOR: "Visual Studio 11 2012"
+    - CMAKE_GENERATOR: "Visual Studio 12 2013"
+
+matrix:
+  fast_finish: true
+
+install:
+ - ps: $env:PATH="C:\\MinGW\bin;C:\\Python34;C:\\Python34\\Scripts;C:\\Python27;C:\\Python27\Scripts;C:\\Ruby21\bin:$env:PATH"
+ - ps: wget public-travis-scripts.polysquare.org/bootstrap.py -OutFile bootstrap
+ - ps: python bootstrap -d "C:/container" -s setup/bii/setup.py -e powershell -p test-env.ps1 --no-mdl --cmake-version latest
+ - ps: . ./test-env
+
+build: false
+
+test_script:
+ - ps: polysquare_run check/bii/check.py --no-mdl --generator "$env:CMAKE_GENERATOR" --block "smspillaz/cppcheck-target-cmake" --namespace "cppcheck"
+
+after_test:
+ - ps: polysquare_cleanup

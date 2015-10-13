@@ -1,35 +1,31 @@
-#
-# CPPCheck.cmake
+# /CPPCheck.cmake
 #
 # Utility functions to add cppcheck static analysis to source files in a
 # particular target
 #
-# See LICENCE.md for Copyright information.
-
-set (CMAKE_MODULE_PATH
-     ${CMAKE_CURRENT_LIST_DIR}/tooling-cmake-util
-     ${CMAKE_MODULE_PATH})
+# See /LICENCE.md for Copyright information
 
 include (CMakeParseArguments)
-include (PolysquareToolingUtil)
+include ("smspillaz/tooling-cmake-util/PolysquareToolingUtil")
 
 set (CPPCHECK_COMMON_OPTIONS
      --quiet
-     --template "{file}:{line}: {severity} {id}: {message}"
+     --template
+     "{file}:{line}: {severity} {id}: {message}"
      --inline-suppr
      --max-configs=1)
 
-macro (_validate_cppcheck CONTINUE)
+macro (cppcheck_validate CONTINUE)
 
     if (NOT DEFINED CPPCheck_FOUND)
 
-        find_package (CPPCheck ${ARGN})
+        find_package (CPPCHECK ${ARGN})
 
-    endif (NOT DEFINED CPPCheck_FOUND)
+    endif ()
 
-    set (${CONTINUE} ${CPPCheck_FOUND})
+    set (${CONTINUE} ${CPPCHECK_FOUND})
 
-endmacro (_validate_cppcheck)
+endmacro ()
 
 function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
@@ -52,12 +48,12 @@ function (_cppcheck_get_commandline COMMANDLINE_RETURN)
 
             set (LANGUAGE_OPTION --language=c++ -D__cplusplus)
 
-        endif (COMMANDLINE_LANGUAGE STREQUAL "C")
+        endif ()
 
-    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+    endif ()
 
     set (${COMMANDLINE_RETURN}
-         ${CPPCHECK_EXECUTABLE}
+         "${CPPCHECK_EXECUTABLE}"
          ${COMMANDLINE_OPTIONS}
          ${LANGUAGE_OPTION}
          ${COMMANDLINE_SOURCES}
@@ -81,18 +77,18 @@ function (_cppcheck_add_normal_check_command TARGET SOURCE)
                          SINGLEVAR_ARGS LANGUAGE
                          MULTIVAR_ARGS OPTIONS)
     _cppcheck_get_commandline (CPPCHECK_COMMAND
-                               SOURCES ${SOURCE}
+                               SOURCES "${SOURCE}"
                                ${GET_COMMANDLINE_FORWARD_OPTIONS})
 
     # cppcheck (c) and cppcheck (cxx) can both be run on one source
     string (TOLOWER "${ADD_NORMAL_CHECK_LANGUAGE}" LANGUAGE_LOWER)
     psq_forward_options (ADD_NORMAL_CHECK RUN_TOOL_ON_SOURCE_FORWARD
                          MULTIVAR_ARGS DEPENDS)
-    psq_run_tool_on_source (${TARGET} ${SOURCE} "cppcheck (${LANGUAGE_LOWER})"
+    psq_run_tool_on_source (${TARGET} "${SOURCE}" "cppcheck (${LANGUAGE_LOWER})"
                             COMMAND ${CPPCHECK_COMMAND}
                             ${RUN_TOOL_ON_SOURCE_FORWARD})
 
-endfunction (_cppcheck_add_normal_check_command)
+endfunction ()
 
 function (_cppcheck_add_checks_to_target TARGET)
 
@@ -125,7 +121,7 @@ function (_cppcheck_add_checks_to_target TARGET)
     # For C headers, pass --language=c
     foreach (SOURCE ${C_SOURCES})
 
-        _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
+        _cppcheck_add_normal_check_command (${TARGET} "${SOURCE}"
                                             OPTIONS
                                             ${ADD_CHECKS_OPTIONS}
                                             LANGUAGE C
@@ -136,7 +132,7 @@ function (_cppcheck_add_checks_to_target TARGET)
     # For CXX headers, pass --language=c++ and -D__cplusplus
     foreach (SOURCE ${CXX_SOURCES})
 
-        _cppcheck_add_normal_check_command (${TARGET} ${SOURCE}
+        _cppcheck_add_normal_check_command (${TARGET} "${SOURCE}"
                                             OPTIONS
                                             ${ADD_CHECKS_OPTIONS}
                                             LANGUAGE CXX
@@ -146,7 +142,7 @@ function (_cppcheck_add_checks_to_target TARGET)
 
 endfunction ()
 
-# cppcheck_add_to_global_unused_function_check
+# cppcheck_add_to_unused_function_check
 #
 # Adds the source files as specified in SOURCES to the global
 # list of source files to check during the global unused function
@@ -158,7 +154,7 @@ endfunction ()
 #                      Ideally this should be a target which would cause
 #                      the relevant sources to be re-generated or re-built.
 #                      If it is, then the unused function check rule is
-#                      guarunteed to run only after those sources have been
+#                      guaranteed to run only after those sources have been
 #                      updated.
 # [Optional] SOURCES : A variable containing a list of sources
 # [Optional] INCLUDES : A list of include directories used to
@@ -187,16 +183,18 @@ function (cppcheck_add_to_unused_function_check WHICH)
     psq_append_to_global_property_unique (CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES
                                           ${WHICH})
 
-    psq_append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
+    # Saves some space
+    set (W ${WHICH})
+    psq_append_to_global_property (CPPCHECK_${W}_UNUSED_FUNCTION_CHECK_SOURCES
                                    LIST ${FILTERED_CHECK_SOURCES})
-    psq_append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES
+    psq_append_to_global_property (CPPCHECK_${W}_UNUSED_FUNCTION_CHECK_INCLUDES
                                    LIST ${UNUSED_CHECK_INCLUDES})
-    psq_append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES
+    psq_append_to_global_property (CPPCHECK_${W}_UNUSED_FUNCTION_CHECK_DEFINES
                                    LIST ${UNUSED_CHECK_DEFINES})
-    psq_append_to_global_property (CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS
+    psq_append_to_global_property (CPPCHECK_${W}_UNUSED_FUNCTION_CHECK_TARGETS
                                    LIST ${UNUSED_CHECK_TARGETS})
 
-endfunction (cppcheck_add_to_unused_function_check)
+endfunction ()
 
 # cppcheck_get_unused_function_checks
 #
@@ -212,7 +210,7 @@ function (cppcheck_get_unused_function_checks RESULT_VARIABLE)
 
     set (${RESULT_VARIABLE} ${UNUSED_CHECKS} PARENT_SCOPE)
 
-endfunction (cppcheck_get_unused_function_checks)
+endfunction ()
 
 # cppcheck_add_unused_function_check_with_name
 #
@@ -228,7 +226,7 @@ endfunction (cppcheck_get_unused_function_checks)
 # [Optional] DEPENDS : Targets on which this unused function check depends.
 function (cppcheck_add_unused_function_check_with_name WHICH)
 
-    _validate_cppcheck (CPPCHECK_AVAILABLE)
+    cppcheck_validate (CPPCHECK_AVAILABLE)
 
     if (NOT CPPCHECK_AVAILABLE)
 
@@ -236,32 +234,32 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
     endif ()
 
-    get_property (_cppcheck_unused_function_check_names
+    get_property (_CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES
                   GLOBAL
                   PROPERTY CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES)
 
     set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME FALSE)
 
-    foreach (NAME ${_cppcheck_unused_function_check_names})
+    foreach (NAME ${_CPPCHECK_UNUSED_FUNCTION_CHECK_NAMES})
 
         if (NAME STREQUAL ${WHICH})
 
             set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME TRUE)
             break ()
 
-        endif (NAME STREQUAL ${WHICH})
+        endif ()
 
     endforeach ()
 
     psq_assert_set (HAS_UNUSED_FUNCTION_CHECK_WITH_THIS_NAME
                     "No unused function check with name ${WHICH} exists")
 
-    get_property (_cppcheck_unused_function_sources_set
+    get_property (_CPPCHECK_UNUSED_FUNCTION_SOURCES_SET
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES
                   SET)
 
-    psq_assert_set (_cppcheck_unused_function_sources_set
+    psq_assert_set (_CPPCHECK_UNUSED_FUNCTION_SOURCES_SET
                     "No unused function sources registered, "
                     "they should be registered using "
                     "cppcheck_add_to_global_unused_function_check "
@@ -278,19 +276,19 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
                            "${UNUSED_CHECK_MULTIVAR_ARGS}"
                            ${ARGN})
 
-    get_property (_cppcheck_unused_function_sources
+    get_property (_CPPCHECK_UNUSED_FUNCTION_SOURCES
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_SOURCES)
 
-    get_property (_cppcheck_unused_function_includes
+    get_property (_CPPCHECK_UNUSED_FUNCTION_INCLUDES
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_INCLUDES)
 
-    get_property (_cppcheck_unused_function_definitions
+    get_property (_CPPCHECK_UNUSED_FUNCTION_DEFINITIONS
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_DEFINES)
 
-    get_property (_cppcheck_unused_function_targets
+    get_property (_CPPCHECK_UNUSED_FUNCTION_TARGETS
                   GLOBAL
                   PROPERTY CPPCHECK_${WHICH}_UNUSED_FUNCTION_CHECK_TARGETS)
 
@@ -302,43 +300,43 @@ function (cppcheck_add_unused_function_check_with_name WHICH)
 
         list (APPEND OPTIONS --language=c++)
 
-    endif (${CPPCHECK_VERSION} VERSION_GREATER 1.57)
+    endif ()
 
     psq_add_switch (OPTION UNUSED_CHECK_WARN_ONLY
                     ON --error-exitcode=1)
 
     list (APPEND UNUSED_CHECK_INCLUDES
-          ${_cppcheck_unused_function_includes})
+          ${_CPPCHECK_UNUSED_FUNCTION_INCLUDES})
 
     psq_append_each_to_options_with_prefix (OPTIONS -I
                                             LIST
                                             ${UNUSED_CHECK_INCLUDES})
 
     list (APPEND UNUSED_CHECK_DEFINES
-          ${_cppcheck_unused_function_definitions})
+          ${_CPPCHECK_UNUSED_FUNCTION_DEFINITIONS})
 
     psq_append_each_to_options_with_prefix (OPTIONS -D
                                             LIST
                                             ${UNUSED_CHECK_DEFINES})
 
     _cppcheck_get_commandline (CPPCHECK_COMMAND
-                               SOURCES ${_cppcheck_unused_function_sources}
+                               SOURCES ${_CPPCHECK_UNUSED_FUNCTION_SOURCES}
                                OPTIONS ${OPTIONS})
 
-    set (STAMPFILE ${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.cppcheck-unused.stamp)
+    set (STAMPFILE "${CMAKE_CURRENT_BINARY_DIR}/${WHICH}.cppcheck-unused.stamp")
 
     add_custom_command (OUTPUT ${STAMPFILE}
                         COMMAND ${CPPCHECK_COMMAND}
-                        COMMAND ${CMAKE_COMMAND} -E touch ${STAMPFILE}
+                        COMMAND "${CMAKE_COMMAND}" -E touch ${STAMPFILE}
                         DEPENDS
-                        ${_cppcheck_unused_function_sources}
-                        ${_cppcheck_unused_function_targets}
+                        ${_CPPCHECK_UNUSED_FUNCTION_SOURCES}
+                        ${_CPPCHECK_UNUSED_FUNCTION_TARGETS}
                         ${UNUSED_CHECK_DEPENDS}
                         COMMENT "Running unused function check: ${WHICH}")
 
     add_custom_target (${WHICH} ALL SOURCES ${STAMPFILE})
 
-endfunction (cppcheck_add_unused_function_check_with_name)
+endfunction ()
 
 # cppcheck_sources
 #
@@ -349,13 +347,13 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 # [Mandatory] SOURCES : A list of sources to scan.
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues.
-# [Optional] CHECK_UNUSED : Check for unused functions.
+# [Optional] NO_CHECK_UNUSED : Don't check for unused functions.
 # [Optional] CHECK_GENERATED : Also check generated sources.
 # [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
 #            the unused function check. This option works independently of
 #            the CHECK_GENERATED option.
 # [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
-#                             e.g. C, CXX
+#                             eg C, CXX
 # [Optional] INCLUDES : Include directories to search.
 # [Optional] DEFINES : Set compile time definitions.
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
@@ -364,13 +362,13 @@ endfunction (cppcheck_add_unused_function_check_with_name)
 # [Optional] DEPENDS : Targets or source files to depend on.
 function (cppcheck_sources TARGET)
 
-    _validate_cppcheck (CPPCHECK_AVAILABLE)
+    cppcheck_validate (CPPCHECK_AVAILABLE)
 
     if (NOT CPPCHECK_AVAILABLE)
 
         return ()
 
-    endif (NOT CPPCHECK_AVAILABLE)
+    endif ()
 
     set (OPTIONAL_OPTIONS
          WARN_ONLY
@@ -408,9 +406,9 @@ function (cppcheck_sources TARGET)
                     OFF --error-exitcode=1)
     psq_add_switch (CPPCHECK_OPTIONS CPPCHECK_NO_CHECK_STYLE
                     OFF --enable=style)
-    psq_add_switch (CPPCHECK_OPTIONS CPPCHECK_CHECK_UNUSED
-                    ON --enable=unusedFunction
-                    OFF --suppress=unusedStructMember)
+    psq_add_switch (CPPCHECK_OPTIONS CPPCHECK_NO_CHECK_UNUSED
+                    OFF --enable=unusedFunction
+                    ON --suppress=unusedStructMember)
 
     psq_append_each_to_options_with_prefix (CPPCHECK_OPTIONS -I
                                             LIST
@@ -431,7 +429,7 @@ function (cppcheck_sources TARGET)
                                     SOURCES ${FILTERED_CHECK_SOURCES}
                                     ${ADD_CHECKS_TO_TARGET_FORWARD})
 
-endfunction (cppcheck_sources)
+endfunction ()
 
 # cppcheck_target_sources
 #
@@ -441,13 +439,13 @@ endfunction (cppcheck_sources)
 # TARGET : Target to check sources on
 # [Optional] WARN_ONLY : Don't error out, just warn on potential problems.
 # [Optional] NO_CHECK_STYLE : Don't check for style issues
-# [Optional] CHECK_UNUSED : Check for unused functions
+# [Optional] NO_CHECK_UNUSED : Don't check for unused functions
 # [Optional] CHECK_GENERATED : Also check generated sources.
 # [Optional] CHECK_GENERATED_FOR_UNUSED: Check generated sources later for
 #            the unused function check. This option works independently of
 #            the CHECK_GENERATED option.
 # [Optional] FORCE_LANGUAGE : Force all scanned files to be a certain language,
-#                             e.g. C, CXX
+#                             eg C, CXX
 # [Optional] INCLUDES : Check header files in specified include directories.
 # [Optional] DEFINES : Set compile time definitions.
 # [Optional] CPP_IDENTIFIERS : A list of identifiers which indicate that
@@ -456,12 +454,13 @@ endfunction (cppcheck_sources)
 # [Optional] DEPENDS : Targets or source files to depend on.
 function (cppcheck_target_sources TARGET)
 
-    psq_strip_extraneous_sources (_files_to_check ${TARGET})
+    psq_strip_extraneous_sources (files_to_check ${TARGET})
+    message (STATUS "To check: ${files_to_check}")
     cppcheck_sources (${TARGET}
-                      SOURCES ${_files_to_check}
+                      SOURCES ${files_to_check}
                       ${ARGN})
 
-endfunction (cppcheck_target_sources)
+endfunction ()
 
 # cppcheck_add_target_sources_to_unused_function_check
 #
@@ -475,15 +474,14 @@ endfunction (cppcheck_target_sources)
 # [Optional] INCLUDES : Include directories to scan when parsing
 #            the sources for this target.
 # [Optional] DEFINES : Set compile time definitions.
-# [Optional] NO_CHECK_GENERATED : Do not add generated files
-#            to the unused function check.
+# [Optional] CHECK_GENERATED : Add generated files to the unused function check.
 function (cppcheck_add_target_sources_to_unused_function_check TARGET
                                                                WHICH)
 
-    psq_strip_extraneous_sources (_files_to_check ${TARGET})
+    psq_strip_extraneous_sources (files_to_check ${TARGET})
     cppcheck_add_to_unused_function_check (${WHICH}
                                            TARGETS ${TARGET}
-                                           SOURCES ${_files_to_check}
+                                           SOURCES ${files_to_check}
                                            ${ARGN})
 
 endfunction ()

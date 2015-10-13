@@ -1,4 +1,4 @@
-# FindCPPCheck.cmake
+# /FindCPPCHECK.cmake
 #
 # This CMake script will search for cppcheck and set the following
 # variables
@@ -11,18 +11,20 @@
 # CPPCHECK_SEARCH_PATHS : List of directories to search for cppcheck in, before
 #                         searching any system paths. This should be the prefix
 #                         to which cppcheck was installed, and not the path
-#                         that contains the cppcheck binary. E.g. /opt/ not
+#                         that contains the cppcheck binary. Eg /opt/ not
 #                         /opt/bin/
 #
-# See LICENCE.md for Copyright info
+# See /LICENCE.md for Copyright information
 
-set (CMAKE_MODULE_PATH
-     ${CMAKE_MODULE_PATH}
-     ${CMAKE_CURRENT_LIST_DIR}/tooling-find-package-cmake-util)
+include ("smspillaz/tooling-find-pkg-util/ToolingFindPackageUtil")
 
-include (ToolingFindPackageUtil)
+function (cppcheck_find)
 
-function (_find_cppcheck)
+    if (DEFINED CPPCHECK_FOUND)
+
+        return ()
+
+    endif ()
 
     # Set-up the directory tree of the cppcheck installation
     set (BIN_SUBDIR bin)
@@ -43,7 +45,7 @@ function (_find_cppcheck)
 
     if (CPPCHECK_EXECUTABLE)
 
-        psq_find_tool_extract_version (${CPPCHECK_EXECUTABLE} CPPCHECK_VERSION
+        psq_find_tool_extract_version ("${CPPCHECK_EXECUTABLE}" CPPCHECK_VERSION
                                        VERSION_ARG --version
                                        VERSION_HEADER "Cppcheck "
                                        VERSION_END_TOKEN " ")
@@ -54,20 +56,20 @@ function (_find_cppcheck)
 
             psq_print_if_not_quiet (CPPCheck
                                     MSG "Only cppcheck versions >= 1.58"
-                                         "support specifying a language for"
-                                         "analysis. You may encounter false"
-                                         "positives when scanning header"
-                                         "files if cppcheck is unable to"
-                                         "determine their source language."
-                                         "Consider upgrading to a newer"
-                                         "version of cppcheck, such that"
-                                         "this script can specify the"
-                                         "language of your header files"
-                                         "after detecting them")
+                                        "support specifying a language for"
+                                        "analysis. You may encounter false"
+                                        "positives when scanning header"
+                                        "files if cppcheck is unable to"
+                                        "determine their source language."
+                                        "Consider upgrading to a newer"
+                                        "version of cppcheck, such that"
+                                        "this script can specify the"
+                                        "language of your header files"
+                                        "after detecting them")
 
-        endif (${CPPCHECK_VERSION} VERSION_LESS 1.58)
+        endif ()
 
-    endif (CPPCHECK_EXECUTABLE)
+    endif ()
 
     psq_check_and_report_tool_version (CPPCheck
                                        "${CPPCHECK_VERSION}"
@@ -75,8 +77,10 @@ function (_find_cppcheck)
                                        CPPCHECK_EXECUTABLE
                                        CPPCHECK_VERSION)
 
-    set (CPPCheck_FOUND ${CPPCheck_FOUND} PARENT_SCOPE)
+    set (CPPCHECK_FOUND # NOLINT:style/set_var_case
+         ${CPPCHECK_FOUND}
+         PARENT_SCOPE)
 
-endfunction (_find_cppcheck)
+endfunction ()
 
-_find_cppcheck ()
+cppcheck_find ()
