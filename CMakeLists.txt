@@ -1716,7 +1716,8 @@ function (cppcheck_test_unused_function_check_always_run_after_depends)
                                                         "${_CURRENT_LIST_FILE}")
         endforeach ()
 
-        add_custom_target (custom_dependency)
+        add_custom_target (custom_dependency
+                           COMMAND "${CMAKE_COMMAND}" -E echo "custom_dep")
         cppcheck_add_to_unused_function_check (global SOURCES ${SOURCES}
                                                DEPENDS
                                                custom_dependency)
