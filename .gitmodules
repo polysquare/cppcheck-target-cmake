@@ -1,9 +1,0 @@
-[submodule "cmake-unit"]
-	path = cmake-unit
-	url = git://github.com/polysquare/cmake-unit
-[submodule "tooling-cmake-util"]
-	path = tooling-cmake-util
-	url = git://github.com/polysquare/tooling-cmake-util
-[submodule "tooling-find-package-cmake-util"]
-	path = tooling-find-package-cmake-util
-	url = git://github.com/polysquare/tooling-find-package-cmake-util
