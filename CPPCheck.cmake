@@ -14,11 +14,15 @@ set (CPPCHECK_COMMON_OPTIONS
      "{file}:{line}: {severity} {id}: {message}"
      --inline-suppr
      --max-configs=1)
+set (_CPPCHECK_LIST_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 macro (cppcheck_validate CONTINUE)
 
     if (NOT DEFINED CPPCheck_FOUND)
 
+        set (CMAKE_MODULE_PATH
+             ${CMAKE_MODULE_PATH} # NOLINT:correctness/quotes
+             "${_CPPCHECK_LIST_DIR}")
         find_package (CPPCHECK ${ARGN})
 
     endif ()
