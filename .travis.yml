@@ -4,29 +4,40 @@ cache:
   directories:
   - container
 env:
-- CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="latest" DEPLOY="1"
-- CMAKE_GENERATOR="Ninja" CMAKE_VERSION="latest"
-- CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="3.0"
-- CMAKE_GENERATOR="Ninja" CMAKE_VERSION="3.0"
-- CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="latest" COVERAGE="--use-cmake-coverage"
+  matrix:
+  - CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="latest" DEPLOY="1"
+  - CMAKE_GENERATOR="Ninja" CMAKE_VERSION="latest"
+  - CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="3.0"
+  - CMAKE_GENERATOR="Ninja" CMAKE_VERSION="3.0"
+  - CMAKE_GENERATOR="Unix Makefiles" CMAKE_VERSION="latest" COVERAGE="--use-cmake-coverage"
+  global:
+  - secure: IBsx4ybT+SlgrS9Pm8Gs1hZs+1VcToLXWZp4o9zcCYxjtZxWBNPz1+LLBvy1v0il8O3FAorm4QLCNQWcwACds4LL2zRhxqs23rduA5EM5J6v1cmuRMuu5JEs9XfUr1Jh/Mdf7Y9eJoBZkVxOKxzo9YBw5nkikWDNi2xJ+1/Jfj0=
+  - secure: LlJws4d5JZfdf5QZOiMd/WbgzgXSb7fxhmCH/yYuXgVtm96OPIRdLlOKZFuQA8gJGMHKxbF3B6qknsKAiECQ05LY5v1EMxeF/EVq6vCRMsuoMJz9p6F4qBPJguieCWDn3Kn8a1bS9zuXJRIwCaWXy3Cbld0vIyysX1KKPWX7vpU=
+  - secure: dqqsOP1oAnFadRUDPTDp+ZaL6RxfzsDumEHOUMD93/M+zzT7vdQhwRaTNDLEkb0CygFDCrTcCYA9Bnt2ppxgp9WSdFBdkTi+XIZ83bAJb0+nTe2Elq/XioIpYbRElOPGZRiWhbKkjVnh+XdYsbRejI+AXB7x2+RCxqWy56AjfMw=
+addons:
+  apt:
+    sources:
+    - deadsnakes
+    packages:
+    - python3.4-dev
 install:
-- eval $(curl -LSs --retry 100 --connect-timeout 3 public-travis-scripts.polysquare.org/bootstrap.py | python /dev/stdin -d container -s setup/bii/setup.py -e bash -p /dev/stdout --cmake-version ${CMAKE_VERSION})
+- eval $(curl -LSs --retry 100 --connect-timeout 3 public-travis-scripts.polysquare.org/bootstrap.py
+  | python /dev/stdin -d container -s setup/conan/setup.py -e bash -p /dev/stdout
+  --cmake-version ${CMAKE_VERSION})
 script:
-- polysquare_run check/bii/check.py ${COVERAGE} --cmake-namespace cppcheck --generator "${CMAKE_GENERATOR}" --block "smspillaz/cppcheck-target-cmake"
+- polysquare_run check/conan/check.py ${COVERAGE} --cmake-namespace cppcheck --generator
+  "${CMAKE_GENERATOR}"
 before_cache:
 - polysquare_cleanup
 after_success:
-- polysquare_run coverage/bii/coverage.py
+- polysquare_run coverage/cmake/coverage.py
 before_deploy:
-- polysquare_run deploy/bii/deploy.py
+- polysquare_run deploy/conan/before_deploy.py --package="cppcheck-target-cmake"
 deploy:
-  provider: biicode
+  provider: script
   skip_cleanup: true
-  user:
-    secure: m6lkgoCDoJQ1BM/C5jxVX/yM7xu+B8GyvL9QV3gwp+xbr2TaoiewQTfWuZUgmGcqJoZyr9pn8ZCDL+vxt1X3+iRpE1E97jWEvy+O+dSy1mtJSx4FH8NC3bxdF5avSWq+daCDQzFYQx9VJZAtbPeLjW99KrKT0gjW/K2wkGqwxKs=
-  password:
-    secure: CbK6QzzKBUEMJMcTvEMDlf9IighY+EwaMeUfrjlON0pysskLxJA51uxZDJQl7alLZyywJ0/mkG2/q7G37LTeWOltvDHwOlYrf+IotJGLQsreKfovzG9ZyQeIe8JM/JiBw7T4R+v72AWs9HoX6c3Ho84t4Rp+t6/GG08CgtamJs4=
+  script: "./travis-deploy"
   on:
     repo: polysquare/cppcheck-target-cmake
     branch: master
-    condition: ${DEPLOY} = 1
+    condition: "${DEPLOY} = 1"

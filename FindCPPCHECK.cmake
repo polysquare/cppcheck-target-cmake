@@ -16,7 +16,7 @@
 #
 # See /LICENCE.md for Copyright information
 
-include ("smspillaz/tooling-find-pkg-util/ToolingFindPackageUtil")
+include ("cmake/tooling-find-pkg-util/ToolingFindPackageUtil")
 
 function (cppcheck_find)
 
