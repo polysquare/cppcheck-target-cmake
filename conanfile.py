@@ -26,6 +26,10 @@ class CPPCheckTargetCMakeConan(ConanFile):
         os.unlink(zip_name)
 
     def package(self):
+        self.copy(pattern="Find*.cmake",
+                  dst="",
+                  src="cppcheck-target-cmake-" + VERSION,
+                  keep_path=True)
         self.copy(pattern="*.cmake",
                   dst="cmake/cppcheck-target-cmake",
                   src="cppcheck-target-cmake-" + VERSION,
