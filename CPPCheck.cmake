@@ -6,7 +6,7 @@
 # See /LICENCE.md for Copyright information
 
 include (CMakeParseArguments)
-include ("smspillaz/tooling-cmake-util/PolysquareToolingUtil")
+include ("cmake/tooling-cmake-util/PolysquareToolingUtil")
 
 set (CPPCHECK_COMMON_OPTIONS
      --quiet
