@@ -1836,7 +1836,7 @@ set (CMAKE_FILES
      "${CMAKE_CURRENT_LIST_DIR}/FindCPPCHECK.cmake"
      "${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt")
 set (MARKDOWN_FILES
-     "${CMAKE_CURRENT_LIST_DIR}/LICENSE.md"
+     "${CMAKE_CURRENT_LIST_DIR}/LICENCE.md"
      "${CMAKE_CURRENT_LIST_DIR}/README.md")
 
 cmake_module_add_common_targets (NAMESPACE "psq"
