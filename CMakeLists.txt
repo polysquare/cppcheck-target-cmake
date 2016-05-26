@@ -1841,7 +1841,7 @@ set (MARKDOWN_FILES
 
 if (COMMAND cmake_module_add_common_targets)
 
-    cmake_module_add_common_targets (NAMESPACE "psq"
+    cmake_module_add_common_targets (NAMESPACE "cppcheck"
                                      CMAKE_FILES ${CMAKE_FILES}
                                      DOCUMENTATION_FILES ${MARKDOWN_FILES})
 
